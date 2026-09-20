@@ -266,9 +266,11 @@ export const dictionary: Record<string, string> = {
   "settings.safety.thresholdDesc": "单次删除占总书签比例达到此值时触发熔断（推荐 20%）",
 
   // ─── 关于页 ───
-  "settings.about.title": "关于",
+  "settings.about.title": "关于与更新",
+  "settings.about.repository": "本项目 GitHub",
+  "settings.about.updateInfo": "从本项目 GitHub Releases 检查新版本。发现更新后前往下载页面，手动安装；首次检查需授权访问 GitHub API。",
   "settings.about.forkedFrom": "复刻自",
-  "settings.about.desc": "一个隐私优先的跨浏览器书签同步工具，使用 WebDAV 协议，数据完全由你掌控。",
+  "settings.about.desc": "隐私优先的跨浏览器书签同步工具。通过你自己的 WebDAV 或 GitHub Gist 存储同步书签，支持端到端加密、本地快照与云端历史备份。",
   "settings.about.support": "支持 Chrome、Edge、Firefox 等基于 Chromium 和 Firefox 的浏览器。",
   "settings.about.checkUpdate": "检查更新",
   "settings.about.checking": "检查中...",

@@ -266,9 +266,11 @@ export const dictionary: Record<string, string> = {
   "settings.safety.thresholdDesc": "Trigger safety breaker when deletion percentage reaches this value (recommended 20%)",
 
   // ─── About page ───
-  "settings.about.title": "About",
+  "settings.about.title": "About & updates",
+  "settings.about.repository": "Project on GitHub",
+  "settings.about.updateInfo": "Check this project's GitHub Releases for new versions, then download and install manually. The first check requires permission to access the GitHub API.",
   "settings.about.forkedFrom": "Forked from",
-  "settings.about.desc": "A privacy-first cross-browser bookmark sync tool using WebDAV — your data stays under your control.",
+  "settings.about.desc": "A privacy-first bookmark sync tool across browsers, using your own WebDAV or GitHub Gist storage. Supports end-to-end encryption, local snapshots and cloud backup history.",
   "settings.about.support": "Supports Chrome, Edge, Firefox and other Chromium/Firefox-based browsers.",
   "settings.about.checkUpdate": "Check for updates",
   "settings.about.checking": "Checking...",

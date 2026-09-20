@@ -10,12 +10,8 @@ import { Button } from '../Button'
 import { SubPageHeader } from './SettingsShared'
 import { requestHostPermissions, requireHostPermission } from '../../infrastructure/browser/host-permissions'
 
-// 顶部引入 semver
 import semver from 'semver'
 import browser from 'webextension-polyfill'
-// ...
-
-// ...
 export function AboutPage({ onBack }: { onBack: () => void }) {
   const { t } = useI18n()
   const [checking, setChecking] = useState(false)
@@ -60,14 +56,8 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
       <SubPageHeader title={t('settings.about.title')} onBack={onBack} />
       <div className="space-y-4 pb-4">
         <div className="p-4 surface-card text-center">
-          <h3 className="text-xl font-bold text-foreground">
-            <a href="https://github.com/1378944437/marksync" target="_blank" rel="noopener noreferrer" className="hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">MarkSync</a>
-          </h3>
+          <h3 className="text-xl font-bold text-foreground">MarkSync</h3>
           <p className="text-sm text-muted-foreground mt-1">v{currentVersion}</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            {t('settings.about.forkedFrom')}{' '}
-            <a href="https://github.com/Yueby/bookmark-syncer" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">Yueby/bookmark-syncer</a>
-          </p>
         </div>
         <div className="p-4 surface-card">
           <p className="text-sm text-muted-foreground">
@@ -79,6 +69,17 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
             {t('settings.about.support')}
           </p>
         </div>
+        <div className="p-4 surface-card space-y-3 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground">{t('settings.about.repository')}</p>
+            <a href="https://github.com/1378944437/marksync" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-primary underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">1378944437/marksync</a>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">{t('settings.about.forkedFrom')}</p>
+            <a href="https://github.com/Yueby/bookmark-syncer" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-primary underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">Yueby/bookmark-syncer</a>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">{t('settings.about.updateInfo')}</p>
         
         {updateAvailable ? (
           <Button

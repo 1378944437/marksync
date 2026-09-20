@@ -39,7 +39,7 @@ export const LayoutWrapper = ({ children, isFullTab = false, isMobile = false }:
   }
 
   return (
-    <div className={`compact-layout ${isMobile ? 'mobile-layout' : ''} relative bg-background text-foreground font-sans overflow-hidden rounded-xl flex flex-col transition-colors duration-300 border border-border/70 dark:border-white/[0.08]`}>
+    <div className={`compact-layout ${isMobile ? 'mobile-layout border border-border/70 dark:border-white/[0.08]' : ''} relative bg-background text-foreground font-sans overflow-hidden flex flex-col transition-colors duration-300`}>
       {/* 弹窗微光 */}
       <div
         className="absolute -top-20 -left-20 w-80 h-80 rounded-full pointer-events-none transition-opacity duration-700 opacity-90 dark:opacity-80"
