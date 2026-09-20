@@ -48,38 +48,38 @@ export function CloudBackupsPanel({
           return (
             <div
               key={backup.path}
-              onClick={() => toggleExpand(backup.path)}
               className={cn(
-                "rounded-xl border transition-all cursor-pointer overflow-hidden",
+                "rounded-xl border transition-colors overflow-hidden",
                 isExpanded
                   ? "bg-accent/40 border-primary/50 shadow-sm"
                   : "bg-muted/40 dark:bg-white/[0.03] border-border hover:border-primary/40 hover:bg-muted/70"
               )}
             >
               {/* 主展示行 */}
-              <div className="p-3 flex items-center justify-between gap-2">
-                <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
+              <button type="button" aria-expanded={isExpanded} onClick={() => toggleExpand(backup.path)}
+                className="w-full p-3 flex items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                <span className="flex flex-col min-w-0 flex-1">
+                  <span className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1">
                     <Laptop className="w-3.5 h-3.5 text-primary/80 shrink-0" />
-                    <span className="text-xs font-semibold text-foreground tracking-tight truncate max-w-[160px]">
+                    <span title={displayName} className="min-w-0 text-xs font-semibold text-foreground tracking-tight truncate max-w-full">
                       {displayName}
                     </span>
 
                     {/* 浏览器类型徽章 */}
                     {backup.browser && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium leading-none bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 uppercase">
+                      <span className="col-start-2 justify-self-start text-[10px] px-1.5 py-0.5 rounded font-medium leading-none bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 uppercase">
                         {backup.browser}
                       </span>
                     )}
-                  </div>
+                  </span>
 
                   <span className="text-[10px] text-muted-foreground mt-1">
                     {new Date(backup.timestamp).toLocaleString()}
                   </span>
-                </div>
+                </span>
 
                 {/* 右侧书签数与展开箭头 */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                <span className="flex items-center gap-1.5 shrink-0">
                   {backup.totalCount !== undefined && (
                     <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-background/80 border border-border text-foreground/80">
                       {t('sync.cloudBackups.bookmarks', { count: backup.totalCount })}
@@ -91,14 +91,13 @@ export function CloudBackupsPanel({
                       isExpanded && "rotate-180 text-primary"
                     )}
                   />
-                </div>
-              </div>
+                </span>
+              </button>
 
               {/* 展开式操作面板 */}
               {isExpanded && (
                 <div
                   className="px-3 py-2.5 border-t border-border/50 bg-background/60 flex items-center justify-between gap-2"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <span className="text-[11px] text-muted-foreground truncate flex-1 font-mono">
                     {backup.name}
@@ -106,7 +105,7 @@ export function CloudBackupsPanel({
                   <Button
                     size="sm"
                     variant="default"
-                    className="text-xs h-7 px-3 gap-1 shadow-sm shrink-0"
+                    className="text-xs h-9 px-3 gap-1 shadow-sm shrink-0"
                     onClick={() => requestRestoreCloudBackup(backup)}
                   >
                     <Download className="w-3 h-3" />

@@ -46,7 +46,7 @@ export function StatsCard({
       }}
       title={tooltip}
       className={cn(
-        "group relative overflow-hidden rounded-2xl p-4 transition-all border flex flex-col justify-between select-none",
+        "group relative min-w-0 overflow-hidden rounded-2xl p-4 transition-colors border flex flex-col justify-between select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isClickable && "cursor-pointer hover:border-primary/60 hover:shadow-md active:scale-[0.98]",
         color === 'indigo'
           ? "bg-indigo-500/10 border-indigo-500/30 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)] dark:border-indigo-400/30 dark:shadow-[0_0_30px_-5px_rgba(99,102,241,0.45)]"
@@ -90,6 +90,7 @@ export function StatsCard({
           </div>
         )}
       </div>
+      {isClickable && tooltip && <p className="relative z-10 mt-2 text-[11px] leading-relaxed text-muted-foreground">{tooltip}</p>}
     </div>
   )
 }

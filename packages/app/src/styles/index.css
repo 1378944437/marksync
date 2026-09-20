@@ -82,6 +82,9 @@
     @apply h-full w-full bg-background text-foreground antialiased;
   }
 
+  /* 控制台页面切换时保留滚动条位置；不改变原生 popup 的内容测量宽度。 */
+  html:has(.console-shell) { scrollbar-gutter: stable; }
+
   /* 注意：不要在 html/body 上加 overflow-hidden 或百分比外的尺寸约束——
      弹窗窗口按文档内容测尺寸，裁剪会让高度链断成 0，弹窗塌缩成小方块；
      弹窗圆角由 LayoutWrapper 容器自绘（rounded-xl） */
@@ -89,6 +92,15 @@
 
 /* ===== Component Styles ===== */
 @layer components {
+  /* 部分手机扩展宿主仍报告 fine pointer，沿用应用的手机识别作兜底。 */
+  .mobile-layout .sync-drawer button { min-height: 44px; }
+  .mobile-layout .sync-drawer button[aria-label] { min-width: 44px; }
+  .mobile-layout .console-navigation button { min-width: 44px; min-height: 44px; }
+  @media (pointer: coarse) {
+    .sync-drawer button { min-height: 44px; }
+    .sync-drawer button[aria-label] { min-width: 44px; }
+    .console-navigation button { min-width: 44px; min-height: 44px; }
+  }
   .console-shell { min-height: 100dvh; display: grid; grid-template-columns: 248px minmax(0, 1fr); background: hsl(var(--background)); color: hsl(var(--foreground)); }
   .console-sidebar { display: flex; flex-direction: column; gap: 1.5rem; padding: 2rem 1.25rem; border-right: 1px solid hsl(var(--border)); background: hsl(var(--card) / .55); }
   .console-brand { display: flex; align-items: center; gap: .7rem; color: inherit; text-decoration: none; }
@@ -111,13 +123,15 @@
   .console-header-actions { display: flex; align-items: center; gap: .75rem; } .console-status { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem .7rem; border: 1px solid hsl(152 60% 42% / .25); border-radius: 999px; color: hsl(152 60% 38%); font-size: .72rem; } .console-status > span { width: .4rem; height: .4rem; border-radius: 99px; background: currentColor; } .console-status.is-pending { border-color: hsl(38 80% 48% / .3); color: hsl(38 80% 42%); } .console-status.is-offline { border-color: hsl(var(--destructive) / .3); color: hsl(var(--destructive)); }
   .console-icon-button { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px solid hsl(var(--border)); border-radius: .65rem; background: hsl(var(--card)); color: hsl(var(--muted-foreground)); cursor: pointer; }
   .console-stack { display: grid; gap: 1.25rem; padding-top: 1.5rem; } .console-dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .75fr); gap: 1.25rem; } .console-panel { min-width: 0; padding: 1.25rem; border: 1px solid hsl(var(--border)); border-radius: 1rem; background: hsl(var(--card) / .65); }
-  .console-sync-panel { min-height: 560px; } .console-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; } .console-section-heading h2 { margin: 0; font-size: .98rem; } .console-section-heading p { margin: .3rem 0 0; color: hsl(var(--muted-foreground)); font-size: .75rem; }
+  .console-sync-panel { min-height: 560px; display: flex; flex-direction: column; }
+  .console-sync-panel .console-sync-view { height: auto; flex: 1; min-height: 0; }
+  .console-sync-panel .sync-footer { margin-left: 0; margin-right: 0; border: 1px solid hsl(var(--border)); border-radius: .8rem; }
+  .console-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; } .console-section-heading h2 { margin: 0; font-size: .98rem; } .console-section-heading p { margin: .3rem 0 0; color: hsl(var(--muted-foreground)); font-size: .75rem; }
   .console-provider { padding: 1rem; border: 1px solid hsl(var(--primary) / .22); border-radius: .8rem; background: hsl(var(--primary) / .06); } .console-provider span { color: hsl(var(--primary)); font-size: .7rem; font-weight: 700; text-transform: uppercase; } .console-provider strong { display: block; margin-top: .35rem; font-size: 1rem; } .console-provider p { margin: .35rem 0 0; color: hsl(var(--muted-foreground)); font-size: .73rem; }
   .console-detail-list { display: grid; gap: .6rem; margin: 1.25rem 0; } .console-detail-list div { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding-bottom: .6rem; border-bottom: 1px solid hsl(var(--border)); } .console-detail-list dt { display: flex; align-items: center; gap: .5rem; color: hsl(var(--muted-foreground)); font-size: .75rem; } .console-detail-list dd { max-width: 52%; margin: 0; overflow: hidden; color: hsl(var(--foreground)); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
   .console-skip-link { position: absolute; left: -9999px; } .console-skip-link:focus { left: 1rem; top: 1rem; z-index: 20; padding: .5rem; background: hsl(var(--card)); }
   @media (max-width: 900px) { .console-shell { grid-template-columns: 76px minmax(0, 1fr); } .console-sidebar { padding: 1.25rem .75rem; align-items: center; } .console-brand span:last-child, .console-nav-caption, .console-navigation button span, .console-sidebar-footer { display: none; } .console-navigation button { justify-content: center; } .console-main { padding: 1.5rem; } .console-dashboard-grid { grid-template-columns: 1fr; } }
   @media (max-width: 640px) { .console-shell { display: block; overflow-x: clip; } .console-sidebar { position: sticky; top: 0; z-index: 10; flex-direction: row; justify-content: space-between; padding: .65rem .9rem; border-right: 0; border-bottom: 1px solid hsl(var(--border)); } .console-navigation { display: flex; } .console-navigation button { width: 2.3rem; touch-action: manipulation; } .console-main { padding: 1rem; overflow-x: clip; } .console-view-slot { min-height: calc(100dvh - 8rem); } .console-page-header { align-items: flex-start; flex-direction: column; } .console-sync-panel { min-height: auto; } }
-  @media (max-width: 640px) { .console-sync-panel .console-sync-view { height: auto; min-height: 0; } .console-sync-panel .sync-footer { margin-left: 0; margin-right: 0; border: 1px solid hsl(var(--border)); border-radius: .8rem; } }
   /* 原生桌面 popup 从约 25px 的视口开始测量，不能用 max-width:100%
      或 max-height:100dvh 限制自身，否则尺寸会锁死在初始小方块。 */
   .compact-layout {

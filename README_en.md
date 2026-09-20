@@ -44,8 +44,8 @@ Your bookmarks represent private digital assets. **MarkSync** removes third-part
 | 🔐 **End-to-End Encryption (E2E)** | Authenticated **AES-256-GCM + PBKDF2**. Bookmarks are encrypted before leaving your browser; zero-knowledge storage in the cloud with real-time strength indication. |
 | ⚡ **Smart Incremental Sync** | Tree-level **SHA-256 hash** comparison detects minimal deltas in milliseconds. Smart folder normalization prevents duplicate bloating. |
 | 🛡️ **Dual-Track Disaster Recovery** | **Local snapshots (IndexedDB)** and **cloud multi-version backups (WebDAV/Gist)**. **Guaranteed minimum 5 copies protection** with custom quota and auto-rotation. |
-| 🎯 **Direct Access & Device Tags** | Click dashboard cards to directly open snapshots/backups. Native parsing of custom device names (e.g. `💻 Living Room PC (Edge) · 157 bookmarks`). |
-| 📱 **Responsive & Mobile-Ready** | Optimized 380px desktop popup; fully responsive layout for mobile browsers (Firefox Android / Kiwi) with numeric keypad support and overflow protection. |
+| 🎯 **Direct Access & Device Tags** | Dashboard cards explain their snapshot/backup destination; lists support keyboard expansion and confirmation before restoring. Native parsing of custom device names (e.g. `💻 Living Room PC (Edge) · 157 bookmarks`). |
+| 📱 **Responsive & Mobile-Ready** | A 360px desktop popup and bounded panels on wide screens; mobile layouts (Firefox Android / Kiwi) with 44px list action targets, bottom safe-area spacing and portrait/landscape support. Backup and snapshot panels keep a stable width while opening and when lists grow. |
 | 🔌 **1-Click Cloud Presets** | Built-in templates for Nutstore, Nextcloud, Synology NAS, InfiniCLOUD, and Alist — no manual URL construction needed. |
 
 ---

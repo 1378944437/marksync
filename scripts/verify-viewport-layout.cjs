@@ -6,7 +6,7 @@ const os = require('node:os');
 const assert = require('node:assert/strict');
 const baseline = process.argv.includes('--baseline');
 const extension = path.resolve('apps/chrome-extension/dist');
-const output = path.resolve('docs/validation/2026-09-15-viewport-layout');
+const output = path.resolve(process.env.MARKSYNC_VALIDATION_OUTPUT || 'docs/validation/2026-09-15-viewport-layout');
 const results = [];
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function attachPopup(cdp, targetId) {

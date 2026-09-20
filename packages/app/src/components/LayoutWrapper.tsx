@@ -13,7 +13,7 @@ interface LayoutWrapperProps {
 export const LayoutWrapper = ({ children, isFullTab = false, isMobile = false }: LayoutWrapperProps) => {
   if (isFullTab) {
     return (
-      <div className="relative min-h-[100dvh] w-full bg-background text-foreground font-sans flex flex-col transition-colors duration-300 overflow-x-hidden pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
+      <div className={`${isMobile ? 'mobile-layout' : ''} relative min-h-[100dvh] w-full bg-background text-foreground font-sans flex flex-col transition-colors duration-300 overflow-x-hidden pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]`}>
         {/* 大屏环境背景微光 */}
         <div
           className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full pointer-events-none transition-opacity duration-700 opacity-70 dark:opacity-60"

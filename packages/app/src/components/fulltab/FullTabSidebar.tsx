@@ -20,6 +20,7 @@ export function FullTabSidebar({ activeNav, onNavigate }: {
     <p className="console-nav-caption">{t('fulltab.navigation')}</p>
     <nav aria-label={t('fulltab.navigation')} className="console-navigation">
       {items.map(({ key, icon: Icon }) => <button key={key} type="button"
+        aria-label={t(`fulltab.nav.${key}`)} title={t(`fulltab.nav.${key}`)}
         aria-current={activeNav === key ? 'page' : undefined} onClick={() => onNavigate(key)}>
         <Icon size={18} /><span>{t(`fulltab.nav.${key}`)}</span>
         {activeNav === key && <span className="console-nav-indicator" aria-hidden="true" />}

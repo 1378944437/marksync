@@ -26,7 +26,7 @@ export function Drawer({ isOpen, onClose, title, children, footer }: DrawerProps
 
   const dialogRef = useModalDialog(isOpen);
   return (
-    <dialog ref={dialogRef} aria-label={title || 'Dialog'} onCancel={(event) => { event.preventDefault(); onClose(); }} className="fixed inset-0 m-0 h-full w-full max-h-none max-w-none border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">
+    <dialog ref={dialogRef} aria-label={title || 'Dialog'} onCancel={(event) => { event.preventDefault(); onClose(); }} className="sync-drawer fixed inset-0 m-0 h-full w-full max-h-none max-w-none overflow-hidden border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">
     <AnimatePresence>
       {isOpen && (
         <>
@@ -53,37 +53,37 @@ export function Drawer({ isOpen, onClose, title, children, footer }: DrawerProps
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.2 }}
             onDragEnd={handleDragEnd}
-            className="absolute bottom-0 left-0 right-0 z-50 flex flex-col max-h-[90%] w-full bg-card/95 dark:bg-card/90 backdrop-blur-xl border-t border-border rounded-t-[20px] shadow-2xl"
+            className="absolute bottom-0 left-0 right-0 mx-auto z-50 flex flex-col max-h-[90%] w-full max-w-2xl bg-card/95 dark:bg-card/90 backdrop-blur-xl border border-border rounded-t-[20px] shadow-2xl"
             style={{ willChange: 'transform' }} // Optimization
           >
             {/* Handle Bar */}
             <div
-                className="w-full flex items-center justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+                className="w-full shrink-0 flex items-center justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
                 onPointerDown={(e) => controls.start(e)}
             >
               <div className="w-12 h-1.5 rounded-full bg-border dark:bg-white/20" />
             </div>
 
             {/* Header */}
-            <div className="px-6 pb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground tracking-tight">{title}</h2>
+            <div className="shrink-0 px-4 pb-3 flex items-center justify-between gap-3 border-b border-border">
+              <h2 className="min-w-0 break-words text-lg font-semibold text-foreground tracking-tight">{title}</h2>
               <button
                 aria-label={t('repair.close')}
                 onClick={onClose}
-                className="p-1 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content Scroller */}
-            <div className="flex-1 overflow-y-auto px-4 pb-6 touch-pan-y custom-scrollbar">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] touch-pan-y custom-scrollbar">
               {children}
             </div>
 
             {/* Footer which sticks to bottom */}
             {footer && (
-               <div className="px-6 py-4 border-t border-border bg-card backdrop-blur flex gap-3">
+               <div className="shrink-0 px-6 py-4 border-t border-border bg-card backdrop-blur flex gap-3">
                  {footer}
                </div>
             )}
