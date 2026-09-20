@@ -39,6 +39,8 @@ Your bookmarks represent private digital assets. **MarkSync** removes third-part
 ## ✨ Core Feature Matrix
 
 The popup opens without horizontal or card slide-in motion; count loading rows keep a fixed height.
+Scrollbars are hidden; mouse-wheel, touch and keyboard scrolling remain available.
+Settings help supports click, hover and keyboard focus. Retention fields show one pair of step buttons; backup file intervals use a dropdown.
 
 On a new device with no bookmarks, enable encryption using the existing cloud passphrase. After verification, only local settings are saved; download your bookmarks from the sync panel without publishing an empty backup.
 

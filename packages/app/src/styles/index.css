@@ -82,8 +82,6 @@
     @apply h-full w-full bg-background text-foreground antialiased;
   }
 
-  /* 控制台页面切换时保留滚动条位置；不改变原生 popup 的内容测量宽度。 */
-  html:has(.console-shell) { scrollbar-gutter: stable; }
 
   /* 注意：不要在 html/body 上加 overflow-hidden 或百分比外的尺寸约束——
      弹窗窗口按文档内容测尺寸，裁剪会让高度链断成 0，弹窗塌缩成小方块；
@@ -167,22 +165,11 @@
   }
 }
 
-/* ===== Global Scrollbar ===== */
+/* 隐藏滚动条外观，保留原有 overflow 与滚轮、触摸、键盘滚动。 */
+* { scrollbar-width: none; }
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  background-color: transparent;
+  width: 0;
+  height: 0;
+  background: transparent;
 }
-
-::-webkit-scrollbar-track {
-  background-color: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--muted-foreground) / 0.5);
-}
+::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb { background: transparent; }

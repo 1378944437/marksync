@@ -2,7 +2,7 @@
  * 帮助说明问号提示图标组件
  * 点击或轻触问号图标弹出轻量级解释文本框浮层，避免过长的描述文字撑大卡片高度
  */
-import { FC, useEffect, useRef, useState } from 'react'
+import { FC, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { HelpCircle, Info } from 'lucide-react'
 import { cn } from '../infrastructure/utils/format'
@@ -19,6 +19,8 @@ export interface HelpTipProps {
 export const HelpTip: FC<HelpTipProps> = ({ content, className, maxWidth = 260 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
+  const tipId = useId()
   const [coords, setCoords] = useState<{ top: number; left: number; width: number; isAbove: boolean }>({
     top: 0,
     left: 0,
@@ -48,18 +50,20 @@ export const HelpTip: FC<HelpTipProps> = ({ content, className, maxWidth = 260 }
 
     const top = isAbove ? rect.top - 6 : rect.bottom + 6
 
-    setCoords({ top, left, width: boxWidth, isAbove })
+    setCoords(previous => previous.top === top && previous.left === left &&
+      previous.width === boxWidth && previous.isAbove === isAbove
+      ? previous : { top, left, width: boxWidth, isAbove })
   }
 
-  const toggle = (e: React.MouseEvent) => {
+  const open = () => {
+    calculatePosition()
+    setIsOpen(true)
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
-    if (!isOpen) {
-      calculatePosition()
-      setIsOpen(true)
-    } else {
-      setIsOpen(false)
-    }
+    open()
   }
 
   // 监听窗口缩放与按键关闭
@@ -69,13 +73,19 @@ export const HelpTip: FC<HelpTipProps> = ({ content, className, maxWidth = 260 }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsOpen(false)
     }
+    const handleOutside = (e: PointerEvent) => {
+      if (!triggerRef.current?.contains(e.target as Node) && !tipRef.current?.contains(e.target as Node)) handleClose()
+    }
 
-    window.addEventListener('resize', handleClose)
+    document.addEventListener('pointerdown', handleOutside)
+    // Edge 原生 popup 会在内容绘制时发送 resize，不能因此关闭刚打开的提示。
+    window.addEventListener('resize', calculatePosition)
     window.addEventListener('scroll', handleClose, true)
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      window.removeEventListener('resize', handleClose)
+      document.removeEventListener('pointerdown', handleOutside)
+      window.removeEventListener('resize', calculatePosition)
       window.removeEventListener('scroll', handleClose, true)
       window.removeEventListener('keydown', handleKeyDown)
     }
@@ -86,10 +96,16 @@ export const HelpTip: FC<HelpTipProps> = ({ content, className, maxWidth = 260 }
       <button
         ref={triggerRef}
         type="button"
-        onClick={toggle}
+        onClick={handleClick}
+        onPointerEnter={(e) => { if (e.pointerType === 'mouse') open() }}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse') setIsOpen(false) }}
+        onFocus={open}
+        onBlur={() => setIsOpen(false)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}
+        aria-describedby={isOpen ? tipId : undefined}
         aria-label="查看说明"
         className={cn(
-          'inline-flex items-center justify-center p-0.5 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all focus:outline-none',
+          'inline-flex shrink-0 items-center justify-center w-6 h-6 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           isOpen && 'text-primary bg-primary/10',
           className
         )}
@@ -99,18 +115,12 @@ export const HelpTip: FC<HelpTipProps> = ({ content, className, maxWidth = 260 }
 
       {isOpen && typeof document !== 'undefined' &&
         createPortal(
-          <div className="fixed inset-0 z-50 pointer-events-auto">
-            {/* 透明点击外围遮罩 */}
-            <div
-              className="absolute inset-0 bg-black/15 dark:bg-black/35 backdrop-blur-[0.5px] transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsOpen(false)
-              }}
-            />
-
+          <div className="fixed inset-0 z-50 pointer-events-none">
             {/* 浮层提示框主体 */}
             <div
+              ref={tipRef}
+              id={tipId}
+              role="tooltip"
               style={{
                 top: coords.top,
                 left: coords.left,
@@ -128,7 +138,7 @@ export const HelpTip: FC<HelpTipProps> = ({ content, className, maxWidth = 260 }
               </div>
             </div>
           </div>,
-          document.body
+          triggerRef.current?.closest('dialog') ?? document.body
         )}
     </>
   )

@@ -33,7 +33,7 @@ function App() {
                 </div>
 
                 {/* 弹窗主内容区 */}
-                <div className="flex-1 min-h-0 relative overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] [overflow-anchor:none] px-4">
+                <div className="flex-1 min-h-0 relative overflow-x-hidden overflow-y-auto [overflow-anchor:none] px-4">
                   <HostPermissionNotice />
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div

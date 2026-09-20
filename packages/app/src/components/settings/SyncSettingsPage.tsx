@@ -171,7 +171,7 @@ export function SyncSettingsPage({ onBack }: { onBack: () => void }) {
                   if (!isNaN(val)) setMaxLocalSnapshots(Math.min(100, Math.max(1, val)))
                 }}
                 onBlur={() => normalizeQuota(maxLocalSnapshots, setMaxLocalSnapshots)}
-                className="w-11 h-7 text-xs text-center p-0 font-medium"
+                className="w-11 h-7 text-xs text-center p-0 font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 inputMode="numeric"
               />
               <button
@@ -212,7 +212,7 @@ export function SyncSettingsPage({ onBack }: { onBack: () => void }) {
                   if (!isNaN(val)) setMaxCloudBackups(Math.min(100, Math.max(1, val)))
                 }}
                 onBlur={() => normalizeQuota(maxCloudBackups, setMaxCloudBackups)}
-                className="w-11 h-7 text-xs text-center p-0 font-medium"
+                className="w-11 h-7 text-xs text-center p-0 font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 inputMode="numeric"
               />
               <button

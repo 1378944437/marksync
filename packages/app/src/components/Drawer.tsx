@@ -76,7 +76,7 @@ export function Drawer({ isOpen, onClose, title, children, footer }: DrawerProps
             </div>
 
             {/* Content Scroller */}
-            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain [overflow-anchor:none] [scrollbar-gutter:stable] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] touch-pan-y custom-scrollbar">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain [overflow-anchor:none] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] touch-pan-y custom-scrollbar">
               {children}
             </div>
 
