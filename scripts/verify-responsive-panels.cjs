@@ -36,7 +36,7 @@ async function geometry(dialog) {
     const panel = el.querySelector('.custom-scrollbar').parentElement;
     const r = panel.getBoundingClientRect();
     const scroller = panel.querySelector('.custom-scrollbar');
-    return { width: r.width, left: r.left, right: r.right, bottom: r.bottom, viewport: innerWidth,
+    return { width: r.width, top: r.top, height: r.height, left: r.left, right: r.right, bottom: r.bottom, viewport: innerWidth,
       overflow: scroller.scrollWidth > scroller.clientWidth + 1,
       scrollable: scroller.scrollHeight > scroller.clientHeight };
   });
@@ -85,6 +85,7 @@ async function geometry(dialog) {
           const row = dialog.locator('button[aria-expanded]').first();
           await row.waitFor();
           await page.waitForTimeout(500);
+          const initialBounds = await geometry(dialog);
           await row.focus();
           await page.keyboard.press('Enter');
           assert.equal(await row.getAttribute('aria-expanded'), 'true');
@@ -92,6 +93,8 @@ async function geometry(dialog) {
           assert.equal(await row.getAttribute('aria-expanded'), 'false');
           await row.click();
           const bounds = await geometry(dialog);
+          assert.equal(bounds.top, initialBounds.top, 'Expanding a row must not move the panel');
+          assert.equal(bounds.height, initialBounds.height, 'Expanding a row must not resize the panel');
           assert(!bounds.overflow, 'Long labels must not cause horizontal list overflow');
           assert(bounds.width <= 673 && bounds.left >= 0 && bounds.right <= width, 'Responsive panel bounds');
           assert(bounds.bottom <= height + 1 && bounds.scrollable, 'Long list must scroll inside the viewport');
@@ -101,6 +104,7 @@ async function geometry(dialog) {
           assert.equal(await page.locator('dialog[open]').count(), 2, 'Restore still requires confirmation');
           await confirmation.getByRole('button', { name: cancel, exact: true }).click();
           assert.equal(await page.locator('dialog[open]').count(), 1, 'Cancel returns to the list');
+          assert.equal((await geometry(dialog)).top, initialBounds.top, 'Returning from confirmation must not move the panel');
           if (label === local) {
             await dialog.getByRole('button', { name: en ? 'Delete' : '删除', exact: true }).click();
             await dialog.getByRole('button', { name: cancel, exact: true }).click();

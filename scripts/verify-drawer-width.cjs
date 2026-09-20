@@ -14,8 +14,9 @@ async function sample(page, action) {
     const end = performance.now() + 900;
     function frame() {
       const dialog = document.querySelector('dialog[open]');
-      const panel = dialog?.querySelector('[style*="transform"]');
+      const panel = dialog?.querySelector('.custom-scrollbar')?.parentElement;
       if (panel) window.widthFrames.push({ panel: panel.getBoundingClientRect().width,
+        top: panel.getBoundingClientRect().top, height: panel.getBoundingClientRect().height,
         dialog: dialog.clientWidth, viewport: innerWidth, overflow: dialog.scrollHeight > dialog.clientHeight });
       if (performance.now() < end) requestAnimationFrame(frame);
     }
@@ -49,17 +50,22 @@ async function sample(page, action) {
         assert(frames.length > 10, 'Must sample the opening animation');
         const widths = frames.map(f => f.panel);
         const shift = Math.max(...widths) - Math.min(...widths);
+        const verticalShift = Math.max(...frames.map(f => f.top)) - Math.min(...frames.map(f => f.top));
         const scroller = page.locator('dialog[open] .custom-scrollbar');
+        const topBefore = await scroller.evaluate(el => el.parentElement.getBoundingClientRect().top);
         const before = await scroller.evaluate(el => el.clientWidth);
         const after = await scroller.evaluate(el => {
           const filler = document.createElement('div'); filler.dataset.widthFixture = '';
           filler.style.height = '2000px'; el.append(filler); return el.clientWidth;
         });
         const scroll = await scroller.evaluate(el => { el.scrollTop = 300; return el.scrollTop; });
+        const topAfter = await scroller.evaluate(el => el.parentElement.getBoundingClientRect().top);
         const overflow = await page.locator('dialog[open]').evaluate(el => el.scrollWidth > el.clientWidth);
-        results.push({ width, height, mobile, fullTab, label, shift, before, after, scroll, overflow });
+        results.push({ width, height, mobile, fullTab, label, shift, verticalShift, topBefore, topAfter, before, after, scroll, overflow });
         if (!baseline) {
           assert(shift < 1, `Opening width shift: ${shift}px`);
+          assert(verticalShift < 1, `Opening vertical shift: ${verticalShift}px`);
+          assert.equal(topBefore, topAfter, 'Loading content must not move the panel');
           assert.equal(after, before, 'Loading long content must not change available width');
           assert(scroll > 0, 'Long content must remain scrollable');
           assert(!overflow, 'No horizontal overflow');
@@ -68,6 +74,8 @@ async function sample(page, action) {
         if (label === 'Local bookmarks') await page.screenshot({ path: path.join(output,
           `${baseline ? 'before' : 'after'}-${width}-${height}-${fullTab}.png`) });
         await scroller.locator('[data-width-fixture]').evaluate(el => el.remove());
+        if (!baseline) assert.equal(await scroller.evaluate(el => el.parentElement.getBoundingClientRect().top), topBefore,
+          'Removing content must not move the panel');
         await page.keyboard.press('Escape');
         await page.waitForTimeout(100);
         assert.equal(await page.locator('dialog[open]').count(), 0);

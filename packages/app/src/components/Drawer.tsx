@@ -40,21 +40,20 @@ export function Drawer({ isOpen, onClose, title, children, footer }: DrawerProps
             className="absolute inset-0 bg-black/40 dark:bg-black/65 backdrop-blur-sm z-40"
           />
 
-          {/* Drawer Panel */}
+          {/* 固定外框高度：加载、空态和展开操作只改变内部滚动内容，不重新定位面板。 */}
           <motion.div
             ref={drawerRef}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             drag="y"
             dragListener={false}
             dragControls={controls}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.2 }}
             onDragEnd={handleDragEnd}
-            className="absolute bottom-0 left-0 right-0 mx-auto z-50 flex flex-col max-h-[90%] w-full max-w-2xl bg-card/95 dark:bg-card/90 backdrop-blur-xl border border-border rounded-t-[20px] shadow-2xl"
-            style={{ willChange: 'transform' }} // Optimization
+            className="absolute bottom-0 left-0 right-0 mx-auto z-50 flex flex-col h-[90%] w-full max-w-2xl bg-card/95 dark:bg-card/90 backdrop-blur-xl border border-border rounded-t-[20px] shadow-2xl"
           >
             {/* Handle Bar */}
             <div
@@ -77,7 +76,7 @@ export function Drawer({ isOpen, onClose, title, children, footer }: DrawerProps
             </div>
 
             {/* Content Scroller */}
-            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] touch-pan-y custom-scrollbar">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain [overflow-anchor:none] [scrollbar-gutter:stable] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] touch-pan-y custom-scrollbar">
               {children}
             </div>
 
