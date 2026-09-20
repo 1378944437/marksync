@@ -31,6 +31,7 @@ vi.mock("@src/application/bookmark-monitor", () => ({
 import {
   maybeRunScheduledSync,
   registerAlarmListener,
+  registerConfigWatcher,
   resetScheduledSync,
   startScheduledSync,
   stopScheduledSync,
@@ -40,6 +41,16 @@ import { ALARM_NAME } from "@src/application/constants";
 import browser from "webextension-polyfill";
 
 describe("scheduler", () => {
+  it('reconciles saved local settings in the background and ignores other storage areas', async () => {
+    mocks.getLastScheduledCheck.mockResolvedValue(Date.now());
+    registerConfigWatcher();
+    const listener = vi.mocked(browser.storage.onChanged.addListener).mock.calls[0][0];
+    listener({ scheduled_sync_interval: { newValue: 30 } }, 'session');
+    expect(mocks.getWebDAVConfig).not.toHaveBeenCalled();
+    listener({ scheduled_sync_interval: { newValue: 30 } }, 'local');
+    await vi.waitFor(() => expect(browser.alarms.create).toHaveBeenCalled());
+    expect(mocks.executeAutoPull).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.getWebDAVConfig.mockResolvedValue({

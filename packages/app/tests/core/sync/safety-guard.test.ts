@@ -102,13 +102,25 @@ describe("SafetyGuard - 防误删安全防护", () => {
       expect(pending?.deletedCount).toBe(25);
     });
 
-    it("skipSafetyGuard 为 true 时跳过检查放行", async () => {
+    it("skipSafetyGuard 无匹配 pending 时不放行（fail-closed，重新评估）", async () => {
       const result = await evaluateSafetyBreaker({
         deletedCount: 80,
         totalBefore: 100,
         skipSafetyGuard: true,
       });
-      expect(result.allowed).toBe(true);
+      expect(result.allowed).toBe(false);
+    });
+
+    it("skipSafetyGuard 缺少 confirmationId 时不放行（fail-closed）", async () => {
+      const first = await evaluateSafetyBreaker({ context: "ctx-b", deletedCount: 25, totalBefore: 100 });
+      expect(first.allowed).toBe(false);
+      const retry = await evaluateSafetyBreaker({
+        context: "ctx-b",
+        deletedCount: 80,
+        totalBefore: 100,
+        skipSafetyGuard: true,
+      });
+      expect(retry.allowed).toBe(false);
     });
 
     it("功能未启用 (enabled: false) 时直接放行", async () => {
@@ -123,6 +135,35 @@ describe("SafetyGuard - 防误删安全防护", () => {
     it("边界输入（totalBefore <= 0 或 deletedCount <= 0）安全放行", async () => {
       expect((await evaluateSafetyBreaker({ deletedCount: 0, totalBefore: 100 })).allowed).toBe(true);
       expect((await evaluateSafetyBreaker({ deletedCount: 15, totalBefore: 0 })).allowed).toBe(true);
+    });
+
+    it("context 与 confirmationId 完全匹配时放行（两阶段确认）", async () => {
+      const first = await evaluateSafetyBreaker({ context: "ctx-a", deletedCount: 25, totalBefore: 100 });
+      expect(first.allowed).toBe(false);
+      const retry = await evaluateSafetyBreaker({
+        context: "ctx-a",
+        confirmationId: first.confirmation!.id,
+        deletedCount: 80,
+        totalBefore: 100,
+        skipSafetyGuard: true,
+      });
+      expect(retry.allowed).toBe(true);
+    });
+
+    it("confirmationId 不匹配时不放行，落入正常评估并重新熔断", async () => {
+      const first = await evaluateSafetyBreaker({ context: "ctx-a", deletedCount: 25, totalBefore: 100 });
+      expect(first.allowed).toBe(false);
+      const retry = await evaluateSafetyBreaker({
+        context: "ctx-a",
+        confirmationId: "forged-id",
+        deletedCount: 80,
+        totalBefore: 100,
+        skipSafetyGuard: true,
+      });
+      expect(retry.allowed).toBe(false);
+      // 重新评估生成了新的待确认记录（id 已更换）
+      const pending = await getPendingSafetyConfirmation();
+      expect(pending?.id).not.toBe(first.confirmation!.id);
     });
   });
 });

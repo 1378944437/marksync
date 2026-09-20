@@ -4,6 +4,7 @@
  */
 import type { WebDAVConfig } from "../../core/storage/types";
 import { parseDavList } from "./webdav-xml-parser";
+import { requireHostPermission } from '../browser/host-permissions';
 
 export interface WebDAVFile {
   name: string;
@@ -12,10 +13,25 @@ export interface WebDAVFile {
   size: number;
 }
 
+/** 日志脱敏：剥离 URL 中可能内嵌的 Basic 凭证（user:pass@host），解析失败时原样返回 */
+function redactUrlCredentials(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password) {
+      parsed.username = "";
+      parsed.password = "";
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * WebDAV 客户端接口
  */
 export interface IWebDAVClient {
+  assertAccess?(): Promise<void>;
   testConnection(): Promise<boolean>;
   putFile(path: string, content: string): Promise<void>;
   getFile(path: string, signal?: AbortSignal): Promise<string>;
@@ -41,6 +57,8 @@ export class WebDAVClient implements IWebDAVClient {
     this.config = config;
   }
 
+  async assertAccess(): Promise<void> { await requireHostPermission(this.config.url, this.config); }
+
   /**
    * 基础认证头（所有请求共用）
    * 不再包含 Content-Type，由各请求方法按需设置
@@ -59,7 +77,10 @@ export class WebDAVClient implements IWebDAVClient {
   private normalizeUrl(path: string): string {
     const baseUrl = this.config.url.endsWith("/") ? this.config.url : `${this.config.url}/`;
     const cleanPath = path.startsWith("/") ? path.slice(1) : path;
-    return `${baseUrl}${cleanPath}`;
+    // 内部路径统一为「已解码」形态（本地生成与 listFiles 返回一致），
+    // 上送前按路径段编码，防止文件名中的 #/?/%/空格改变 URL 语义。
+    const encodedPath = cleanPath.split("/").map(encodeURIComponent).join("/");
+    return `${baseUrl}${encodedPath}`;
   }
 
   /**
@@ -67,10 +88,11 @@ export class WebDAVClient implements IWebDAVClient {
    * 外部 signal（如下载队列超时）与内部超时任一触发都会中止请求
    */
   private async fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+    await requireHostPermission(url, this.config);
     const timeout = AbortSignal.timeout(timeoutMs);
     const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
     // 原生超时信号持续覆盖响应体读取，不在收到响应头时提前解除。
-    return fetch(url, { ...init, signal });
+    return fetch(url, { ...init, signal, redirect: 'error' });
   }
 
   async testConnection(): Promise<boolean> {
@@ -143,7 +165,7 @@ export class WebDAVClient implements IWebDAVClient {
         console.error(
           `[WebDAV] ❌ CONFLICT (409) on GET request!`,
           `\n  File: ${fileName}`,
-          `\n  URL: ${fullUrl}`,
+          `\n  URL: ${redactUrlCredentials(fullUrl)}`,
           `\n  Response: ${errorBody.substring(0, 200)}`
         );
         throw new Error(`文件访问冲突，请稍后再试 (409)`);
@@ -229,7 +251,9 @@ export class WebDAVClient implements IWebDAVClient {
 
       const xml = await response.text();
       // 解析委托给独立模块（DOMParser 优先，异常回退正则；见 webdav-xml-parser）
-      const baseUrlPath = new URL(this.config.url).pathname.replace(/\/+$/, "");
+      // baseUrlPath 同样保持「已解码」形态，与解析器返回的 path 前缀比较一致
+      let baseUrlPath = new URL(this.config.url).pathname.replace(/\/+$/, "");
+      try { baseUrlPath = decodeURIComponent(baseUrlPath); } catch { /* 保留原始形态 */ }
       const files = parseDavList(xml, baseUrlPath);
 
       console.log(`[WebDAV] Listed ${files.length} files from ${dirPath}`);
@@ -270,14 +294,6 @@ export class WebDAVClient implements IWebDAVClient {
  * @returns WebDAV 客户端实例（每次创建新实例，避免连接复用导致的 409 冲突）
  */
 export function getWebDAVClient(config: WebDAVConfig): WebDAVClient {
-  console.log(`[WebDAVClient] Creating fresh client instance for ${config.url}`);
+  console.log(`[WebDAVClient] Creating fresh client instance for ${redactUrlCredentials(config.url)}`);
   return new WebDAVClient(config);
-}
-
-/**
- * @deprecated 使用 getWebDAVClient 代替
- * 兼容旧 API 的工厂函数
- */
-export function createWebDAVClient(config: WebDAVConfig): IWebDAVClient {
-  return getWebDAVClient(config);
 }

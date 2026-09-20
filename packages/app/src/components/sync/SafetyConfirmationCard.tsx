@@ -10,8 +10,9 @@ import {
   clearPendingSafetyConfirmation,
   type PendingSafetyConfirmation,
 } from "../../core/sync/utils/safety-guard";
-import { smartPushInBackground } from "../../application/background-ops";
-import type { StorageConfig } from "../../core/storage/types";
+import { smartPushInBackground, smartPullInBackground, restoreCloudBackupInBackground } from "../../application/background-ops";
+import { getStorageIdentifier, type StorageConfig } from "../../core/storage/types";
+import { SYNC_SCOPE_KEYS } from '../../core/bookmark/sync-scope';
 import { Button } from "../Button";
 
 export interface SafetyConfirmationCardProps {
@@ -32,8 +33,14 @@ export function SafetyConfirmationCard({
     null
   );
   const [isPushing, setIsPushing] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
 
   if (!pending) return null;
+  const empty = !!pending.emptyAction;
+  const receiving = pending.emptyAction === 'pull' || pending.emptyAction === 'restore';
+  let currentTarget = '';
+  try { currentTarget = getStorageIdentifier(getConfig()); } catch { /* 未配置时不能确认。 */ }
+  const wrongTarget = !!pending.target && pending.target !== currentTarget;
 
   const handleDismiss = async () => {
     await clearPendingSafetyConfirmation();
@@ -41,19 +48,25 @@ export function SafetyConfirmationCard({
   };
 
   const handleConfirmPush = async () => {
+    if (isPushing || wrongTarget) return;
     setIsPushing(true);
     try {
-      const result = await smartPushInBackground(getConfig(), { skipSafetyGuard: true, confirmationId: pending.id });
+      const config = getConfig();
+      const result = pending.emptyAction === 'pull'
+        ? await smartPullInBackground(config, 'overwrite', pending.id)
+        : pending.emptyAction === 'restore' && pending.backupPath
+          ? await restoreCloudBackupInBackground(config, pending.backupPath, passphrase || undefined, pending.id)
+          : await smartPushInBackground(config, { skipSafetyGuard: true, confirmationId: pending.id, confirmEmpty: empty });
       if (result.success) {
-        toast.success(t("safety.banner.pushSuccess"));
+        toast.success(t(empty ? 'repair.dangerDone' : "safety.banner.pushSuccess"));
         await clearPendingSafetyConfirmation();
         setPending(null);
         loadCounts?.();
       } else {
-        toast.error("上传失败", { description: result.message });
+        toast.error(t('repair.dangerFailed'), { description: result.message });
       }
     } catch (error) {
-      toast.error("上传发生异常", { description: (error as Error).message });
+      toast.error(t('repair.dangerFailed'), { description: (error as Error).message });
     } finally {
       setIsPushing(false);
     }
@@ -68,19 +81,30 @@ export function SafetyConfirmationCard({
 
         <div className="flex-1 min-w-0 pr-6">
           <h4 className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-            <span>{t("safety.banner.title")}</span>
+            <span>{t(empty ? (receiving ? 'repair.emptyReceiveTitle' : 'repair.emptyPushTitle') : "safety.banner.title")}</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 border border-rose-500/30">
               -{pending.deletedCount} ({pending.deletePercentage}%)
             </span>
           </h4>
 
           <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-            {t("safety.banner.desc", {
+            {t(empty ? (receiving ? 'repair.emptyReceiveHint' : 'repair.emptyPushHint') : "safety.banner.desc", {
               deleted: pending.deletedCount,
               percent: pending.deletePercentage,
               threshold: pending.threshold,
             })}
           </p>
+          {empty && <div className="text-[11px] mt-2 space-y-1 break-all">
+            <p>{t('repair.emptyTarget', { target: pending.target || '' })}</p>
+            <p>{t('repair.emptyScope', { scope: SYNC_SCOPE_KEYS.filter(key => (pending.affectedScope ?? pending.scope)?.[key])
+              .map(key => t('settings.sync.scope_' + key.replace('-', '_'))).join(' / ') })}</p>
+            {pending.emptyAction === 'restore' && <label className="block">
+              {t('repair.oldPassword')}
+              <input type="password" autoComplete="off" value={passphrase} onChange={event => setPassphrase(event.target.value)}
+                className="mt-1 w-full rounded border bg-background px-2 py-1" />
+            </label>}
+            {wrongTarget && <p>{t('repair.emptyWrongTarget')}</p>}
+          </div>}
 
           <div className="flex items-center gap-2 mt-2.5 flex-wrap">
             <Button
@@ -97,11 +121,11 @@ export function SafetyConfirmationCard({
               size="sm"
               variant="destructive"
               className="text-xs h-7 px-2.5 bg-rose-600 hover:bg-rose-700 text-white"
-              disabled={isPushing}
+              disabled={isPushing || wrongTarget}
               onClick={handleConfirmPush}
             >
               <Upload className="w-3.5 h-3.5 mr-1" />
-              {isPushing ? "正在上传..." : t("safety.banner.confirmPush")}
+              {isPushing ? t('common.loading') : t(empty ? (receiving ? 'repair.emptyConfirmReceive' : 'repair.emptyConfirmPush') : "safety.banner.confirmPush")}
             </Button>
           </div>
         </div>

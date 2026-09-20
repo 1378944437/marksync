@@ -10,6 +10,14 @@ const localStore: Record<string, unknown> = {};
 const sessionStore: Record<string, unknown> = {};
 
 const browser = {
+  permissions: {
+    contains: vi.fn(async (_permissions: { origins?: string[] }) => true),
+    request: vi.fn(async (_permissions: { origins?: string[] }) => true),
+    getAll: vi.fn(async (): Promise<{ origins: string[] }> => ({ origins: [] })),
+    remove: vi.fn(async (_permissions: { origins?: string[] }) => true),
+    onAdded: { addListener: vi.fn(), removeListener: vi.fn() },
+    onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
+  },
   storage: {
     local: {
       get: vi.fn(async (keys?: string | string[] | Record<string, unknown>) => {

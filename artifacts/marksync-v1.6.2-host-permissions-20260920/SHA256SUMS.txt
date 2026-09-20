@@ -1,0 +1,2 @@
+916a549c1fb89ca7ce5f8ba4671c2fe2230592073e722b6282781228ef985b82  marksync-chrome-v1.6.2-host-permissions-20260920.zip
+1d45b5c490c7b7d6c6f3be2c598971f2ed067a7fdf78ba3bb06fb3a53982da48  marksync-firefox-v1.6.2-host-permissions-20260920-unsigned.xpi

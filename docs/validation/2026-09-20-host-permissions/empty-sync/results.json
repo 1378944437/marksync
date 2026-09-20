@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-20T03:55:51.644Z",
+  "browser": "153.0.4234.32",
+  "extensionVersion": "1.6.2",
+  "environment": "Real Edge extension; two temporary profiles; loopback WebDAV fixture",
+  "results": [
+    {
+      "name": "sender-confirms-one-bookmark-with-breaker-disabled-and-history-retained",
+      "status": "passed"
+    },
+    {
+      "name": "publishing-finishes-in-background-after-fulltab-closes",
+      "status": "passed"
+    },
+    {
+      "name": "natural-scheduled-pull-blocks-dirty-device-merge-and-resurrection",
+      "status": "passed"
+    },
+    {
+      "name": "receiver-confirmation-preserves-excluded-folder-and-restorable-full-snapshot",
+      "status": "passed"
+    },
+    {
+      "name": "receiver-rejects-stale-confirmation-after-edit-or-scope-change",
+      "status": "passed"
+    },
+    {
+      "name": "interrupted-clear-retains-snapshot-blocks-sync-and-restores-all-25-bookmarks",
+      "status": "passed"
+    },
+    {
+      "name": "confirmed-large-clear-completes-and-is-not-reapplied",
+      "status": "passed"
+    }
+  ],
+  "failure": null,
+  "requestCounts": {
+    "PROPFIND": 54,
+    "PUT": 4,
+    "GET": 25
+  },
+  "limitations": [
+    "Not a real remote WebDAV/Gist service",
+    "Loopback site access preauthorized through isolated extension manager; native permission dialog not tested",
+    "Browser automation attached",
+    "Not a toolbar popup lifecycle test",
+    "No Firefox or mobile browser"
+  ]
+}

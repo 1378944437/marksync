@@ -17,8 +17,7 @@ let scheduledCheckInFlight = false;
 
 /**
  * 确保定时闹钟与配置一致（存在且周期正确则不动，否则重建）
- * 闹钟可能因弹窗关闭竞态丢失（设置页先 clear 后 create，中途弹窗销毁则只剩 clear），
- * 每次对账时修复，不依赖“创建时一定成功”
+ * clear/create 之间后台可能终止；每次后台唤醒对账时修复，不能依赖创建必定完成。
  */
 async function ensureScheduledAlarm(intervalMinutes: number): Promise<void> {
   const existingAlarm = await browser.alarms.get(ALARM_NAME);
@@ -115,6 +114,8 @@ async function handleScheduledAlarm(alarm: browser.Alarms.Alarm): Promise<void> 
 /**
  * 更新定时同步配置
  * 用于设置页面保存配置时调用；后台的 storage.onChanged 监听也会调用
+ * 仅限 background（SW）上下文调用：到期时会执行完整同步，
+ * 页面（popup/设置页）上下文可能在执行中销毁，页面侧只能依赖后台 watcher 对账。
  */
 export async function updateScheduledSync(): Promise<void> {
   await maybeRunScheduledSync();
@@ -154,8 +155,7 @@ export async function resetScheduledSync(): Promise<void> {
 
 /**
  * 监听定时同步配置变化（后台侧）
- * 设置页在弹窗里调用 updateScheduledSync，弹窗可能在调用完成前关闭；
- * 这里在后台再兜底一次，配置落盘后即使弹窗已死，闹钟也会被修正
+ * 设置页只保存配置；后台对账闹钟，到期检查也只在后台执行。
  */
 export function registerConfigWatcher(): void {
   browser.storage.onChanged.addListener((changes, area) => {

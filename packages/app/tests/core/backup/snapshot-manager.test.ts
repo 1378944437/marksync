@@ -6,6 +6,7 @@ import { SnapshotManager } from "@src/core/backup/snapshot-manager";
 import type { BookmarkNode } from "@src/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import browser from "webextension-polyfill";
+import { __resetMockStore } from '@src/__mocks__/webextension-polyfill';
 
 // ─── Mock IndexedDB (idb) ───
 
@@ -46,14 +47,15 @@ describe("SnapshotManager", () => {
   const sampleTree: BookmarkNode[] = [
     {
       title: "Root",
-      children: [
+      children: [{ title: 'Bar', children: [
         { title: "Google", url: "https://google.com" },
         { title: "GitHub", url: "https://github.com" },
-      ],
+      ] }],
     },
   ];
 
   beforeEach(() => {
+    __resetMockStore();
     vi.clearAllMocks();
     mockStore.clear();
     autoId = 0;
@@ -61,6 +63,26 @@ describe("SnapshotManager", () => {
   });
 
   // ─── createSnapshot ───
+  it('protects recovery snapshots from retention, individual deletion and clearing', async () => {
+    const protectedId = await manager.createSnapshot(sampleTree, 2, 'recovery');
+    await browser.storage.local.set({ bookmark_recovery: { snapshotId: protectedId } });
+    for (let i = 0; i < 4; i++) await manager.createSnapshot(sampleTree, 2, 'later');
+    expect(mockStore.has(protectedId)).toBe(true);
+    expect(mockStore.size).toBe(3);
+    await expect(manager.deleteSnapshot(protectedId)).rejects.toThrow('暂不能删除');
+    await expect(manager.deleteAllSnapshots()).rejects.toThrow('请先恢复');
+    expect(mockStore.has(protectedId)).toBe(true);
+    await browser.storage.local.remove('bookmark_recovery');
+    await manager.deleteAllSnapshots();
+    expect(mockStore.size).toBe(0);
+  });
+
+  it('returns the saved snapshot even when retention cleanup fails', async () => {
+    for (let i = 0; i < 3; i++) await manager.createSnapshot(sampleTree, 2);
+    mockDb.delete.mockRejectedValueOnce(new Error('disk failure'));
+    const id = await manager.createSnapshot(sampleTree, 2);
+    expect(mockStore.has(id)).toBe(true);
+  });
 
   describe("createSnapshot", () => {
     it("创建快照并返回 ID", async () => {
@@ -212,11 +234,12 @@ describe("SnapshotManager", () => {
         { id: "2", title: "B", url: "https://b.com" },
       ];
 
-      const id1 = await manager.createSnapshot(tree1, 1, "first");
+      const wrap = (children: BookmarkNode[]): BookmarkNode[] => [{ title: '', children: [{ title: 'Bar', children }] }];
+      const id1 = await manager.createSnapshot(wrap(tree1), 1, "first");
       const snap1 = await manager.getSnapshotById(id1);
       expect(snap1?.diff).toEqual({ added: 1, updated: 0, deleted: 0 });
 
-      const id2 = await manager.createSnapshot(tree2, 2, "second");
+      const id2 = await manager.createSnapshot(wrap(tree2), 2, "second");
       const snap2 = await manager.getSnapshotById(id2);
       expect(snap2?.diff).toEqual({ added: 1, updated: 0, deleted: 0 });
     });

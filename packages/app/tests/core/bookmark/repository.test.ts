@@ -31,7 +31,7 @@ vi.mock("@src/core/bookmark/merger-basic", () => ({
     idToPath: new Map(),
   })),
   smartSync: vi.fn(async () => {}),
-  mergeNodes: vi.fn(async () => {}),
+  mergeNodes: vi.fn(async () => new Set<string>()),
   createChildren: vi.fn(async () => {}),
   deleteUnprocessedNodes: vi.fn(async () => 0),
 }));

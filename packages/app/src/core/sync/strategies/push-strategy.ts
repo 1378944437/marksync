@@ -14,11 +14,13 @@ import { acquireSyncLock, releaseSyncLock } from '../lock-manager';
 import { setSyncState } from '../state-manager';
 import { assertNoRecovery } from '../recovery';
 import type { SyncResult, SyncState } from '../types';
+import { emptySyncTree, encodeEmptyBackup } from '../utils/empty-tree';
 
 export interface PushOptions {
   skipLock?: boolean;
   skipSafetyGuard?: boolean;
   confirmationId?: string;
+  confirmEmpty?: boolean;
   /** 仅供持有同一把锁的加密迁移使用；预检仍使用当前密码。 */
   writeEncryption?: E2ESettings;
   readEncryption?: E2ESettings;
@@ -39,9 +41,10 @@ export async function smartPush(config: StorageConfig, lockHolder: string, optio
     if (writing.enabled && !writing.passphrase) throw new Error('端到端加密密码缺失');
     const syncScope = await getSyncScope();
     const localTree = await bookmarkRepository.getTree();
-    const scopedLocalTree = filterTreeByScope(localTree, syncScope);
-    const localCount = countBookmarks(scopedLocalTree);
-    if (!localCount) throw new Error('同步范围内书签为空');
+    const syncedRoots = emptySyncTree(localTree, syncScope);
+    const localCount = countBookmarks(syncedRoots);
+    const scopedLocalTree = localCount ? filterTreeByScope(localTree, syncScope) : syncedRoots;
+    if (options.confirmEmpty && localCount) throw new Error('本地书签已变化，请重新同步并确认');
     const check = await checkCloudStateBeforeUpload({ client, configUrl: target, lockHolder,
       scopedLocalTree, e2e: options.readEncryption ?? e2e, syncScope, skipSafetyGuard: options.skipSafetyGuard,
       forceUpload: !!options.writeEncryption, confirmationId: options.confirmationId });
@@ -60,17 +63,18 @@ export async function smartPush(config: StorageConfig, lockHolder: string, optio
     // 随机段防止同一设备同秒重试覆盖未知结果；文件名解析保持兼容。
     const deviceTag = identity.deviceId.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase() + crypto.randomUUID().replace(/-/g, '');
     let name = fileManager.generateBackupFileName(browserInfo.name, localCount, revision, deviceTag, identity.deviceName) + '.gz';
-    let content = await compressText(JSON.stringify(backup));
+    let content = await compressText(localCount ? JSON.stringify(backup) : encodeEmptyBackup(backup, syncScope));
     if (writing.enabled) { content = await encryptText(content, writing.passphrase); name += '.enc'; }
     const path = `${dir}/${name}`;
     const state: SyncState = { time: now, url: target, type: 'upload', scope: syncScope,
       localHash: await computeTreeHash(scopedLocalTree) };
+    await check.beforeWrite?.();
     await options.onPrepared?.(path, content, state);
     await client.putFile(path, content);
-    if (await client.getFile(path) !== content) throw new Error('云端写入读回校验失败，已保留旧备份');
+    if (await client.getFile(path) !== content) throw new Error('新备份已上传，但读回校验未通过，基线未更新；下次同步将以云端为准');
     const files = await client.listFiles(dir);
     const uploaded = files.find(file => file.path === path || file.name === name);
-    if (!uploaded || !Number.isFinite(uploaded.lastModified)) throw new Error('无法确认云端备份版本，已保留旧备份');
+    if (!uploaded || !Number.isFinite(uploaded.lastModified)) throw new Error('新备份已上传，但无法在云端列表中确认版本，基线未更新；下次同步将以云端为准');
     if (files.some(file => (file.order ?? file.lastModified) > (uploaded.order ?? uploaded.lastModified))) throw new Error('云端出现更新版本，已停止清理并保留此次备份');
     await saveLastBackupFileInfo({ target, fileName: name, filePath: path,
       createdAt: withinWindow ? previous.createdAt : now, revisionNumber: revision });
@@ -78,9 +82,14 @@ export async function smartPush(config: StorageConfig, lockHolder: string, optio
       basis: { mtime: uploaded.lastModified, filePath: uploaded.path } });
     await cacheManager.clearBackupListCache();
     await clearPendingSafetyConfirmation();
-    if (!options.preserveHistory) {
-      if (withinWindow && previous.filePath !== path) await client.deleteFile?.(previous.filePath).catch(() => {});
-      await fileManager.cleanOldBackups(client, { maxToKeep: await getMaxCloudBackups(), minToKeep: 5 });
+    // 清空发布保留全部历史，包括同一时间窗口内的最后一个非空版本。
+    if (localCount && !options.preserveHistory) {
+      try {
+        if (withinWindow && previous.filePath !== path) await client.deleteFile?.(previous.filePath);
+        await fileManager.cleanOldBackups(client, { maxToKeep: await getMaxCloudBackups(), minToKeep: 5 });
+      } catch (error) {
+        return { success: true, action: 'uploaded', message: `上传成功，但旧备份清理失败：${(error as Error).message || '未知错误'}` };
+      }
     }
     return { success: true, action: 'uploaded', message: '上传成功' };
   } catch (error) {

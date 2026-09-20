@@ -1,0 +1,63 @@
+{
+  "recordedAt": "2026-09-20T03:59:50.266Z",
+  "browser": "153.0.4234.32",
+  "results": [
+    {
+      "name": "both-built-manifests-have-only-optional-http-hosts-and-no-content-scripts",
+      "status": "passed"
+    },
+    {
+      "name": "fresh-install-blocks-network-and-shows-actionable-permission-notice",
+      "status": "passed"
+    },
+    {
+      "name": "panel-request-activates-exact-host-after-browser-manager-preauthorization",
+      "status": "passed"
+    },
+    {
+      "name": "injected-request-denial-preserves-saved-connection-and-input-draft",
+      "status": "passed"
+    },
+    {
+      "name": "revoked-access-pauses-auto-upload-without-network-ack-or-baseline-change",
+      "status": "passed"
+    },
+    {
+      "name": "reauthorized-auto-upload-resumes-and-acknowledges-pending-edits",
+      "status": "passed"
+    },
+    {
+      "name": "revocation-after-put-before-readback-preserves-baseline-and-cloud-history",
+      "status": "passed"
+    },
+    {
+      "name": "reauthorization-resolves-unknown-write-by-reading-without-duplicate-upload",
+      "status": "passed"
+    },
+    {
+      "name": "redirect-is-refused-before-following-to-another-address",
+      "status": "passed"
+    },
+    {
+      "name": "trusted-raw-host-needs-separate-access-and-isolated-target-notice",
+      "status": "passed"
+    },
+    {
+      "name": "untrusted-raw-host-is-rejected-without-grant-or-token-request",
+      "status": "passed"
+    }
+  ],
+  "failure": null,
+  "requestCounts": {
+    "PROPFIND": 19,
+    "PUT": 3,
+    "GET": 9,
+    "DELETE": 1
+  },
+  "limitations": [
+    "Headless Edge and loopback fixtures only; no real account",
+    "Host grant is preauthorized in the test browser extension manager, then activated by the actual panel button",
+    "Denied request is explicitly injected; native permission Accept/Cancel dialog is not validated",
+    "No actual old-version upgrade, stock Firefox, mobile browser or toolbar popup test"
+  ]
+}

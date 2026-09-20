@@ -17,6 +17,8 @@ import { isCloudNewerThanBasis, isLocalDirty } from "../utils/sync-basis";
 import { smartPull } from "./pull-strategy";
 import { smartPush } from "./push-strategy";
 import { assertNoRecovery } from '../recovery';
+import { requireEmptyReceive } from '../utils/empty-confirmation';
+import { emptySyncTree } from '../utils/empty-tree';
 
 /**
  * 智能同步：自动判断推送或拉取
@@ -106,10 +108,13 @@ export async function smartSync(
       return await smartPush(config, lockHolder, { skipLock: true });
     }
 
+    if (cloudData.emptySync) await requireEmptyReceive({ backup: cloudData, localTree, scope: syncScope,
+      target: storageId, path: latest.path, mtime: latest.lastModified, allowLocalChanges: true });
+    const scopedLocalTree = (cloudData.emptySync ? emptySyncTree : filterTreeByScope)(localTree, syncScope);
     // 3. 比对内容（双方均按同步范围过滤后再比较）
     console.log("[SmartSyncStrategy] Comparing local and cloud...");
     const isIdentical = await compareWithCloud(
-      filterTreeByScope(localTree, syncScope),
+      scopedLocalTree,
       filterTreeByScope(cloudData.data, syncScope),
     );
 
@@ -121,7 +126,7 @@ export async function smartSync(
         type: "skip_identical",
         scope: syncScope,
         basis: { mtime: latest.lastModified, filePath: latest.path },
-        localHash: await computeTreeHash(filterTreeByScope(localTree, syncScope)),
+        localHash: await computeTreeHash(scopedLocalTree),
       });
       return {
         success: true,
@@ -158,7 +163,7 @@ export async function smartSync(
     if (isCloudNewerThanBasis(latest, syncState, storageId)) {
       // 云端比本地新 → 拉取。但先判断本地是否有未同步的修改：
       // 有 → 绝不静默覆盖（否则本地未上传的新增/修改会被删掉），交给用户选择方向
-      const currentTreeHash = await computeTreeHash(filterTreeByScope(localTree, syncScope));
+      const currentTreeHash = await computeTreeHash(scopedLocalTree);
       if (isLocalDirty(syncState, currentTreeHash)) {
         console.warn(
           "[SmartSyncStrategy] Cloud is newer AND local has unsynced changes, asking user",

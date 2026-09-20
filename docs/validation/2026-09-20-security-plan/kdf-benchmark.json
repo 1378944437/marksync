@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-09-20T03:07:29.904Z",
+  "environment": "Headless desktop Edge; isolated extension service worker; Windows; synthetic password; fresh random 16-byte salt on every derivation; no derived-key cache",
+  "browser": "153.0.4234.32",
+  "algorithm": "PBKDF2-HMAC-SHA256 -> AES-GCM-256",
+  "warmupsPerVariant": 1,
+  "samplesPerVariant": 7,
+  "measurements": [
+    {
+      "iterations": 310000,
+      "samplesMs": [
+        55.199999999953434,
+        52.799999999813735,
+        52.10000000009313,
+        53.699999999953434,
+        56.9000000001397,
+        49.9000000001397,
+        55.89999999990687
+      ],
+      "medianMs": 53.699999999953434,
+      "minMs": 49.9000000001397,
+      "maxMs": 56.9000000001397
+    },
+    {
+      "iterations": 600000,
+      "samplesMs": [
+        101.9000000001397,
+        106.10000000009313,
+        102.0999999998603,
+        108.30000000004657,
+        96.19999999995343,
+        105.80000000004657,
+        103.69999999995343
+      ],
+      "medianMs": 103.69999999995343,
+      "minMs": 96.19999999995343,
+      "maxMs": 108.30000000004657
+    }
+  ],
+  "ratioOfMedians": 1.9310986964626324,
+  "limitations": [
+    "One desktop only; not a low-power or mobile-device benchmark",
+    "Derivation only; excludes compression, encryption, I/O and complete sync latency",
+    "No production KDF parameters or payload formats were changed"
+  ]
+}

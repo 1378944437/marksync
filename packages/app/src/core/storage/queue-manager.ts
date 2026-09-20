@@ -35,7 +35,11 @@ export class QueueManager {
     }
     if (!path.replace(/\.enc$/, '').endsWith('.gz')) throw new Error('不支持的文件格式（必须是 .gz 压缩文件）');
     try { return await decompressText(raw); }
-    catch { throw new Error('解压备份文件失败'); }
+    catch (error) {
+      // 保留原始原因：大小超限（红线）与 gzip 损坏的处置和提示不同，不能合并成一句话
+      const reason = (error as Error)?.message || '未知错误';
+      throw new Error(`解压备份文件失败：${reason}`);
+    }
   }
   clearAll(): void {
     for (const entry of this.downloads.values()) entry.controller.abort();

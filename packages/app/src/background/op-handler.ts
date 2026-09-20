@@ -14,20 +14,23 @@ import { smartPull, smartPush, smartSync, restoreFromCloudBackup } from "../core
 import { notifySyncCompleted } from "../application/sync-indicator";
 import type { SyncResult } from "../core/sync/types";
 import { createStorageProvider } from "../infrastructure/storage/provider-factory";
+import { GistClient } from "../infrastructure/storage/gist-client";
 import { restoreLocalSnapshot } from '../core/sync/local-restore';
 import { runMaintenance } from '../core/sync/maintenance';
 import { acquireSyncLock, releaseSyncLock } from '../core/sync/lock-manager';
 import { fetchValidatedCloudBackup } from '../core/sync/utils/cloud-data-helper';
 import { getE2ESettings } from '../core/sync/sync-settings';
-import { migrateEncryption } from '../core/sync/encryption-migration';
+import { migrateEncryption, cancelEncryptionMigration } from '../core/sync/encryption-migration';
 import { getStorageIdentifier } from '../core/storage/types';
 
 /** 防止重复注册（模块可能被多个入口引入） */
 let registered = false;
+let creatingGist = false;
 
 async function dispatch(message: BackgroundOpMessage): Promise<unknown> {
   switch (message.type) {
     case 'sync:encryption': return migrateEncryption(message.config, message.next);
+    case 'encryption:cancel': return cancelEncryptionMigration(message.config);
     case 'storage:maintenance': return runMaintenance(message.kind, message.config);
     case 'storage:adopt': {
       if (!await acquireSyncLock('adopt')) throw new Error('同步正在进行中');
@@ -56,20 +59,51 @@ async function dispatch(message: BackgroundOpMessage): Promise<unknown> {
       }
     }
 
+    case "gist:test": {
+      // 与 storage:test 同模式：错误单独包装，popup 需要区分具体原因
+      try {
+        const res = await new GistClient(message.config).testConnection();
+        return res.ok ? { ok: true, message: res.message } : { ok: false, error: res.message || "连接失败" };
+      } catch (error) {
+        return { ok: false, error: (error as Error).message || "连接失败" };
+      }
+    }
+    case "gist:create": {
+      if (creatingGist) return { ok: false, error: 'Gist 正在创建，请稍后查看创建结果' };
+      creatingGist = true;
+      try {
+        const { id, url } = await new GistClient(message.config).createGist(message.description, message.isPublic);
+        try {
+          await browser.storage.local.set({ last_created_gist: { id, url,
+            endpoint: message.config.endpoint?.trim().replace(/\/+$/, '') || 'https://api.github.com' } });
+        } catch {
+          return { ok: false, error: `Gist 已创建（ID: ${id}），但本地保存失败；请记录 ID，不要重复创建` };
+        }
+        return { ok: true, id, url };
+      } catch (error) {
+        return { ok: false, error: (error as Error).message || "创建失败" };
+      } finally { creatingGist = false; }
+    }
+
     case "sync:push":
       return message.options
         ? smartPush(message.config, "manual", { skipSafetyGuard: message.options.skipSafetyGuard === true,
+            ...(message.options.confirmEmpty === true ? { confirmEmpty: true } : {}),
             confirmationId: typeof message.options.confirmationId === 'string' ? message.options.confirmationId : undefined })
         : smartPush(message.config, "manual");
 
     case "sync:pull":
       if (message.mode !== 'merge' && message.mode !== 'overwrite') throw new Error('无效的恢复模式');
-      return smartPull(message.config, "manual", message.mode);
+      return typeof message.confirmationId === 'string'
+        ? smartPull(message.config, "manual", message.mode, { confirmationId: message.confirmationId })
+        : smartPull(message.config, "manual", message.mode);
 
     case "sync:smart":
       return smartSync(message.config, "manual");
 
     case "sync:restoreCloudBackup":
+      if (typeof message.confirmationId === 'string') return restoreFromCloudBackup(message.config,
+        message.path, 'manual', message.passphrase, message.confirmationId);
       return message.passphrase ? restoreFromCloudBackup(message.config, message.path, "manual", message.passphrase) : restoreFromCloudBackup(message.config, message.path, "manual");
 
     default:
@@ -81,10 +115,13 @@ async function dispatch(message: BackgroundOpMessage): Promise<unknown> {
 /** 处理的消息类型（用于过滤无关消息） */
 const HANDLED_TYPES = new Set([
   'sync:encryption',
+  'encryption:cancel',
   'storage:maintenance', 'storage:adopt',
   'sync:restoreLocalSnapshot',
   "storage:test",
   "webdav:test",
+  "gist:test",
+  "gist:create",
   "sync:push",
   "sync:pull",
   "sync:smart",

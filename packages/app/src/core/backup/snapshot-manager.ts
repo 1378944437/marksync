@@ -5,6 +5,7 @@
 import { IDBPDatabase, openDB } from "idb";
 import type { BookmarkNode } from "../../types";
 import { calculateBookmarkDiff } from "../bookmark/diff-calculator";
+import { validateRestoreTree } from '../bookmark/validation';
 import { getMaxLocalSnapshots } from "../sync/sync-settings";
 import { getRecoveryRecord } from '../sync/recovery';
 import type {
@@ -69,6 +70,8 @@ export class SnapshotManager {
     reason: string = "auto-backup",
     diff?: SnapshotDiffStats
   ): Promise<number> {
+    // 所有破坏性操作共用此入口；无法原样恢复的树不能充当安全快照。
+    validateRestoreTree(tree);
     const db = await this.getDb();
 
     // 自动比对上一快照差分变动（若上层未显式传入）
@@ -96,8 +99,13 @@ export class SnapshotManager {
 
     const id = await db.add(this.config.storeName, snapshot);
 
-    // 保留最近 N 个快照，删除旧的
-    await this.cleanOldSnapshots();
+    // 保留最近 N 个快照，删除旧的。
+    // 清理属于事后收尾：快照已落库，清理失败不应让调用方误判「创建失败」而中止同步。
+    try {
+      await this.cleanOldSnapshots();
+    } catch (error) {
+      console.warn("[SnapshotManager] Snapshot created but cleanup failed:", error);
+    }
 
     console.log(`[SnapshotManager] Created snapshot ${id} (reason: ${reason}, count: ${count})`);
     return id as number;

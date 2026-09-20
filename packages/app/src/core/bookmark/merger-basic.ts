@@ -51,16 +51,22 @@ export async function createChildren(
 /**
  * 合并节点（只添加新的）
  * 用于保守的合并策略
+ * @returns 本次合并「消费」的本地节点 ID（新建的，以及按 URL/标题命中的既有节点）。
+ *          调用方若处于统一删除阶段之前（如缺失文件夹兜底），
+ *          必须把这些 ID 登记进 shared.processedLocalIds，否则会被删除阶段清除。
  */
-export async function mergeNodes(parentId: string,nodes: BookmarkNode[]): Promise<void> {
+export async function mergeNodes(parentId: string,nodes: BookmarkNode[]): Promise<Set<string>> {
   const localChildren=[...((await BrowserBookmarksAPI.getChildren(parentId)) as BookmarkNode[])];
+  const consumedIds=new Set<string>();
   let addedCount=0;
 
   for(const node of nodes) {
     if(node.url) {
       const normalizedNodeUrl=normalizeUrl(node.url);
-      const exists=localChildren.some((local) => normalizeUrl(local.url)===normalizedNodeUrl);
-      if(!exists) {
+      const existing=localChildren.find((local) => normalizeUrl(local.url)===normalizedNodeUrl);
+      if(existing) {
+        if(existing.id) consumedIds.add(existing.id);
+      } else {
         const createdBookmark=await BrowserBookmarksAPI.create({
           parentId,
           title: node.title,
@@ -68,6 +74,7 @@ export async function mergeNodes(parentId: string,nodes: BookmarkNode[]): Promis
           index: node.index,
         });
         localChildren.push(createdBookmark as BookmarkNode);
+        if(createdBookmark.id) consumedIds.add(createdBookmark.id);
         addedCount++;
       }
     } else {
@@ -76,8 +83,10 @@ export async function mergeNodes(parentId: string,nodes: BookmarkNode[]): Promis
       );
 
       if(existingFolder?.id) {
+        consumedIds.add(existingFolder.id);
         if(node.children&&node.children.length>0) {
-          await mergeNodes(existingFolder.id,node.children);
+          const childIds=await mergeNodes(existingFolder.id,node.children);
+          childIds.forEach((id) => consumedIds.add(id));
         }
       } else {
         const newFolder=await BrowserBookmarksAPI.create({
@@ -86,10 +95,12 @@ export async function mergeNodes(parentId: string,nodes: BookmarkNode[]): Promis
           index: node.index,
         });
         localChildren.push({ ...(newFolder as BookmarkNode),children: [] });
+        if(newFolder.id) consumedIds.add(newFolder.id);
         addedCount++;
 
         if(node.children&&node.children.length>0) {
-          await mergeNodes(newFolder.id,node.children);
+          const childIds=await mergeNodes(newFolder.id,node.children);
+          childIds.forEach((id) => consumedIds.add(id));
         }
       }
     }
@@ -98,4 +109,5 @@ export async function mergeNodes(parentId: string,nodes: BookmarkNode[]): Promis
   if(addedCount>0) {
     console.log(`[Merger] Merged ${addedCount} new items`);
   }
+  return consumedIds;
 }

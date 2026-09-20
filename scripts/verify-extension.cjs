@@ -12,9 +12,11 @@ const lifecycle = process.argv.includes('--lifecycle');
 const interruption = process.argv.includes('--interruption');
 const restoreInterruption = process.argv.includes('--restore-interruption');
 const firefox = process.argv.includes('--firefox');
-assert([lifecycle, interruption, restoreInterruption, firefox].filter(Boolean).length <= 1, 'Select one validation mode');
+const handoff = process.argv.includes('--handoff');
+const emptySync = process.argv.includes('--empty-sync');
+assert([lifecycle, interruption, restoreInterruption, firefox, handoff, emptySync].filter(Boolean).length <= 1, 'Select one validation mode');
 const extension = path.resolve('apps/chrome-extension/dist');
-const output = path.resolve('docs/validation/' + (firefox ? '2026-09-15-firefox' : restoreInterruption ? '2026-09-15-restore' : interruption ? '2026-09-15-interruption' : '2026-09-14-' + (lifecycle ? 'lifecycle' : 'extension')));
+const output = path.resolve(process.env.MARKSYNC_VALIDATION_OUTPUT || ('docs/validation/' + (emptySync ? '2026-09-20-empty-sync' : handoff ? '2026-09-19-handoff' : firefox ? '2026-09-15-firefox' : restoreInterruption ? '2026-09-15-restore' : interruption ? '2026-09-15-interruption' : '2026-09-14-' + (lifecycle ? 'lifecycle' : 'extension'))));
 const manifest = JSON.parse(fs.readFileSync(path.join(extension, 'manifest.json'), 'utf8'));
 const id = crypto.createHash('sha256').update(Buffer.from(manifest.key, 'base64')).digest('hex')
   .slice(0, 32).replace(/[0-9a-f]/g, c => String.fromCharCode(97 + parseInt(c, 16)));
@@ -27,6 +29,7 @@ const server = http.createServer(async (req, res) => {
   const buffers = []; for await (const chunk of req) buffers.push(chunk);
   const content = Buffer.concat(buffers).toString();
   if (req.method === 'PROPFIND') {
+    if (/\.gz(?:\.enc)?$/.test(url) && !files.has(url)) { res.writeHead(404); res.end(); return; }
     const entries = [...files].filter(([name]) => name.startsWith(url.replace(/\/$/, '') + '/'));
     const response = entries.map(([name, file]) => `<d:response><d:href>${name}</d:href><d:propstat><d:prop><d:resourcetype/><d:getlastmodified>${file.time}</d:getlastmodified><d:getcontentlength>${file.content.length}</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`).join('');
     res.writeHead(207, { 'Content-Type': 'application/xml', 'Cache-Control': 'no-store' });
@@ -82,6 +85,7 @@ async function device(name, existingProfile) {
     scheduled_sync_enabled: false, storage_type: 'webdav', webdav_url: config.url,
     webdav_username: config.username, webdav_password: config.password,
     sync_scope: { 'bookmarks-bar': true, other: false, mobile: false } }), config);
+  if (!(await page.evaluate(() => chrome.permissions.getAll())).origins.length) await require('./permission-fixture.cjs')(context, page, config.url);
   return { context, page, profile };
 }
 async function nativeProcess() {
@@ -161,6 +165,8 @@ async function runLifecycle() {
 async function run() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   config = { type: 'webdav', url: `http://127.0.0.1:${server.address().port}/dav`, username: 'test', password: 'test-only' };
+  if (emptySync) return require('./verify-empty-sync.cjs')({ device, add, send, state, config, holdPut, files, requests, until, pass, output, bookmarks, expectSuccess });
+  if (handoff) return require('./verify-handoff.cjs')({ device, add, send, state, config, holdPut, files, requests, until, pass, output });
   if (lifecycle) return runLifecycle();
   if (interruption) return require('./verify-interruption.cjs')({ device, add, send, state, bookmarks,
     expectSuccess, config, holdPut, files, requests, until, pause, pass });
@@ -275,12 +281,13 @@ async function run() {
     fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ date: new Date().toISOString(),
       browser: version, extensionVersion: manifest.version, environment: lifecycle
         ? 'Real Edge extension; temporary profile; native Edge without debugging flags during observation; loopback WebDAV fixture'
+        : handoff ? 'Real Edge extension; disposable profile; settings UI and background operations; loopback WebDAV/Gist fixtures'
         : firefox ? 'Real Edge and Playwright Firefox extensions; temporary profiles; loopback WebDAV fixture'
         : restoreInterruption ? 'Real Edge extension; disposable profile; actual bookmark writes with third create callback suspended, then browser crash; loopback WebDAV fixture'
         : interruption ? 'Real Edge extension; disposable profile; browser crash after server PUT commit; loopback WebDAV fixture'
         : 'Real Edge extension; two temporary profiles; loopback WebDAV fixture',
       results, failure: failure || null, requestCounts: requests.reduce((a, r) => ({ ...a, [r.method]: (a[r.method] || 0) + 1 }), {}),
-      limitations: ['Not a real remote WebDAV/Gist service', lifecycle
+      limitations: ['Not a real remote WebDAV/Gist service', 'Loopback site access preauthorized through isolated extension manager; native permission dialog not tested', lifecycle
         ? 'Playwright used only before/after native phase; natural worker suspension not directly observed; no interruption during writes'
         : 'Browser automation attached', 'Not a toolbar popup lifecycle test', firefox
         ? 'Playwright Firefox runtime, not stock Firefox; no mobile browser' : 'No Firefox or mobile browser'] }, null, 2) + '\n');

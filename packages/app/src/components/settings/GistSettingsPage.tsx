@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill'
 import { validateSettings } from '../../application/settings-validation'
+import { requestHostPermissions } from '../../infrastructure/browser/host-permissions'
 import { GistHistoryAdoption } from './GistHistoryAdoption'
 /**
  * GitHub Gist 存储配置子页面
@@ -18,7 +19,7 @@ import {
 import { toast } from 'sonner'
 import { useI18n } from '../../i18n'
 import { useStorage } from '../../hooks/useStorage'
-import { GistClient } from '../../infrastructure/storage/gist-client'
+import { gistTestInBackground, gistCreateInBackground, type CreatedGist } from '../../application/background-ops'
 import { Button } from '../Button'
 import { Input } from '../Input'
 import { Label } from '../Label'
@@ -29,6 +30,7 @@ export function GistSettingsPage({ onBack }: { onBack: () => void }) {
   const [token] = useStorage('gist_token', '')
   const [gistId] = useStorage('gist_id', '')
   const [endpoint] = useStorage('gist_endpoint', 'https://api.github.com')
+  const [createdGist] = useStorage<CreatedGist | null>('last_created_gist', null)
 
   // 本地受控输入状态
   const [localToken, setLocalToken] = useState(token)
@@ -55,6 +57,7 @@ export function GistSettingsPage({ onBack }: { onBack: () => void }) {
       const values = { gist_token: localToken.trim(), gist_id: localGistId.trim(), gist_endpoint: localEndpoint.trim() }
       validateSettings(values)
       if (!values.gist_id || !values.gist_token) throw new Error(t('settings.gist.tokenRequired'))
+      await requestHostPermissions([values.gist_endpoint || 'https://api.github.com'])
       await browser.storage.local.set(values)
       toast.success(t('settings.security.savedToast'))
     } catch (error) { toast.error((error as Error).message) }
@@ -69,16 +72,16 @@ export function GistSettingsPage({ onBack }: { onBack: () => void }) {
 
     setTesting(true)
     try {
-      const client = new GistClient({
+      await requestHostPermissions([localEndpoint.trim() || 'https://api.github.com'])
+      const res = await gistTestInBackground({
         token: localToken.trim(),
         gistId: localGistId.trim(),
         endpoint: localEndpoint.trim(),
       })
-      const res = await client.testConnection()
       if (res.ok) {
         toast.success(t('settings.gist.connected'), { description: res.message })
       } else {
-        toast.error(t('settings.gist.connectFailed'), { description: res.message })
+        toast.error(t('settings.gist.connectFailed'), { description: res.error })
       }
     } catch (err) {
       toast.error(t('settings.gist.connectError'), { description: (err as Error).message })
@@ -96,14 +99,15 @@ export function GistSettingsPage({ onBack }: { onBack: () => void }) {
 
     setCreating(true)
     try {
-      const client = new GistClient({
-        token: localToken.trim(),
-        endpoint: localEndpoint.trim(),
-        gistId: '',
-      })
-      const { id } = await client.createGist('MarkSync Bookmarks Sync (汇签云端私密书签备份)', false)
-      setLocalGistId(id)
-      toast.success(t('settings.gist.created'), { description: `Gist ID: ${id}` })
+      await requestHostPermissions([localEndpoint.trim() || 'https://api.github.com'])
+      const res = await gistCreateInBackground(
+        { token: localToken.trim(), endpoint: localEndpoint.trim(), gistId: '' },
+        'MarkSync Bookmarks Sync (汇签云端私密书签备份)',
+        false,
+      )
+      if (!res.ok) throw new Error(res.error)
+      setLocalGistId(res.id)
+      toast.success(t('settings.gist.created'), { description: `Gist ID: ${res.id}` })
     } catch (err) {
       toast.error(t('settings.gist.createFailed'), { description: (err as Error).message })
     } finally {
@@ -114,6 +118,16 @@ export function GistSettingsPage({ onBack }: { onBack: () => void }) {
   return (
     <div className="space-y-4 pb-4">
       <SubPageHeader title={t('settings.gist.title')} onBack={onBack} />
+      {createdGist && (createdGist.id !== gistId || createdGist.endpoint !== endpoint.replace(/\/+$/, '')) && (
+        <div className="p-3 rounded-xl border border-border space-y-2 text-xs">
+          <p>{t('repair.gistCreatedDraft')}</p>
+          <p className="font-mono break-all">{createdGist.endpoint} · {createdGist.id}</p>
+          <Button size="sm" disabled={creating || testing} onClick={() => {
+            setLocalGistId(createdGist.id)
+            setLocalEndpoint(createdGist.endpoint)
+          }}>{t('repair.gistUseCreated')}</Button>
+        </div>
+      )}
 
       {/* 优势与安全提示条 */}
       <div className="flex items-start gap-2.5 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs">

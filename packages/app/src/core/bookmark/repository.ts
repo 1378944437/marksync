@@ -50,6 +50,7 @@ export class BookmarkRepository {
     deviceName?: string;
   }, sourceTree?: BookmarkNode[]): Promise<CloudBackup> {
     const tree = sourceTree ?? await this.getTree();
+    validateRestoreTree(tree);
 
     // 为所有节点分配 Hash（动态计算）
     const treeWithHash = await assignHashes(tree);
@@ -160,7 +161,10 @@ export class BookmarkRepository {
             console.warn(
               `[BookmarkRepository] No local folder for "${backupChild.folderType ?? backupChild.title}", merging ${backupChild.children.length} items into "other" (fallback)`,
             );
-            await mergeNodes(otherFolder.id, backupChild.children);
+            const consumedIds = await mergeNodes(otherFolder.id, backupChild.children);
+            // 兜底合并消费的本地节点（新建或命中）登记进共享已处理集，
+            // 否则统一删除阶段会把它们当作未被云端覆盖的节点清除。
+            for (const id of consumedIds) shared.processedLocalIds.add(id);
           } else {
             console.warn(
               `[BookmarkRepository] No matching system folder for ${backupChild.title} and no "other" folder to fall back to`,

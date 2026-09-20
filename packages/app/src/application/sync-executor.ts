@@ -13,6 +13,7 @@ import {
 import { getIsRestoring, getSyncScope } from "../core/sync/sync-settings";
 import { getActiveStorageConfig, getWebDAVConfig } from "./state-manager";
 import { getStorageIdentifier } from "../core/storage";
+import { requireHostPermission, storageEndpoint } from '../infrastructure/browser/host-permissions';
 
 /**
  * 执行上传同步 (Push)
@@ -47,6 +48,7 @@ export async function executeUpload(): Promise<boolean> {
       return false;
     }
 
+    await requireHostPermission(storageEndpoint(config), config);
     const storageId = getStorageIdentifier(config);
 
     // 检查云端是否有未同步的更新
@@ -140,6 +142,7 @@ export async function executeAutoPull(): Promise<void> {
       return;
     }
 
+    await requireHostPermission(storageEndpoint(config), config);
     const storageId = getStorageIdentifier(config);
     console.log(`[SyncExecutor] Using storage config (${storageId})`);
 

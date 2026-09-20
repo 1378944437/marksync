@@ -8,8 +8,9 @@ import {
   clearLocalBookmarks,
   resetFactorySettings,
 } from "@src/core/sync/danger-operations";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import browser from "webextension-polyfill";
+import { cacheManager } from '@src/core/storage/cache-manager';
 
 // Mock snapshotManager
 const mockCreateSnapshot = vi.fn(async () => 42);
@@ -40,6 +41,7 @@ vi.mock("@src/infrastructure/http/webdav-client", () => ({
 }));
 
 describe("DangerOperations - 危险操作领域服务", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     __resetMockStore();
     vi.clearAllMocks();
@@ -85,6 +87,17 @@ describe("DangerOperations - 危险操作领域服务", () => {
   });
 
   describe("clearCloudBackups", () => {
+    it('waits for cache invalidation before completing', async () => {
+      let release!: () => void;
+      vi.spyOn(cacheManager, 'clearBackupListCache').mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+      let completed = false;
+      const operation = clearCloudBackups({ url: 'https://dav.example.com', username: 'u', password: 'p' }).then(() => { completed = true; });
+      await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+      expect(completed).toBe(false);
+      release();
+      await operation;
+      expect(completed).toBe(true);
+    });
     it("仅清理书签备份文件，不删除其他 JSON 文件", async () => {
       const config = {
         url: "https://dav.example.com",
@@ -100,6 +113,37 @@ describe("DangerOperations - 危险操作领域服务", () => {
   });
 
   describe("resetFactorySettings", () => {
+    it.each(['local', 'session'])('preserves snapshots when %s settings cleanup fails', async area => {
+      vi.spyOn(browser.storage[area as 'local' | 'session'], 'remove').mockRejectedValueOnce(new Error('storage failure'));
+      await expect(resetFactorySettings()).rejects.toThrow('storage failure');
+      expect(mockDeleteAllSnapshots).not.toHaveBeenCalled();
+      expect((await browser.storage.local.get('auto_sync_enabled')).auto_sync_enabled).toBe(false);
+    });
+
+    it('retains the maintenance lock and restoring guard until snapshots are deleted', async () => {
+      await browser.storage.local.set({ sync_lock: { holder: 'maintenance' }, secret: 'test' });
+      await browser.storage.session.set({ isRestoring: { value: true }, cache: 'test' });
+      mockDeleteAllSnapshots.mockImplementationOnce(async () => {
+        expect(await browser.storage.local.get(null)).toEqual({ sync_lock: { holder: 'maintenance' }, auto_sync_enabled: false, scheduled_sync_enabled: false });
+        expect(await browser.storage.session.get(null)).toEqual({ isRestoring: { value: true } });
+      });
+      await resetFactorySettings();
+    });
+
+    it.each(['bookmark_recovery', 'encryption_migration'])('does not erase an unresolved %s record', async key => {
+      await browser.storage.local.set({ [key]: { snapshotId: 42 } });
+      await expect(resetFactorySettings()).rejects.toThrow();
+      expect((await browser.storage.local.get(key))[key]).toBeDefined();
+      expect(mockDeleteAllSnapshots).not.toHaveBeenCalled();
+    });
+
+    it('reports snapshot deletion failure and permits retry while keeping auto sync off', async () => {
+      mockDeleteAllSnapshots.mockRejectedValueOnce(new Error('database failure'));
+      await expect(resetFactorySettings()).rejects.toThrow('database failure');
+      expect((await browser.storage.local.get('auto_sync_enabled')).auto_sync_enabled).toBe(false);
+      await resetFactorySettings();
+      expect(mockDeleteAllSnapshots).toHaveBeenCalledTimes(2);
+    });
     it("清除所有本地快照、清空 storage.local 与 session 缓存", async () => {
       await browser.storage.local.set({ webdav_url: "https://dav.example.com" });
       expect((await browser.storage.local.get("webdav_url")).webdav_url).toBe("https://dav.example.com");

@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-09-20T03:01:29.9597404Z",
+  "reusedEvidence": "docs/validation/2026-09-20-empty-sync/evidence.json",
+  "inputsMatched": 261,
+  "artifactsMatched": 35,
+  "packages": [
+    {
+      "platform": "chrome",
+      "path": "artifacts/marksync-v1.6.2-empty-sync-20260920/marksync-chrome-v1.6.2-empty-sync-20260920.zip",
+      "sha256": "c8c6b85a9f5e98286360063595b47158fedc6a8ec21095ba4f149ab9391506dd",
+      "bytes": 243781,
+      "files": 18,
+      "version": "1.6.2",
+      "signed": false,
+      "contentMatchesDist": true,
+      "manifestReferencesVerified": true
+    },
+    {
+      "platform": "firefox",
+      "path": "artifacts/marksync-v1.6.2-empty-sync-20260920/marksync-firefox-v1.6.2-empty-sync-20260920-unsigned.xpi",
+      "sha256": "d8c7274f8f635d2d250f1d7e819593ca385e07ebb835fe6c5f2308c1d88a6dbd",
+      "bytes": 243363,
+      "files": 17,
+      "version": "1.6.2",
+      "signed": false,
+      "contentMatchesDist": true,
+      "manifestReferencesVerified": true
+    }
+  ]
+}

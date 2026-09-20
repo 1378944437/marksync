@@ -1,39 +1,32 @@
 /**
  * sync-indicator.ts 测试
- * 同步完成提示：图标角标 + 活动页面轻提示
+ * 同步完成提示：保留角标与日志，不访问网页
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { notifySyncCompleted } from "@src/application/sync-indicator";
 import browser from "webextension-polyfill";
+import { addSyncLog } from '@src/core/analytics/sync-analytics';
+vi.mock('@src/core/analytics/sync-analytics', () => ({ addSyncLog: vi.fn(async () => {}) }));
 
 describe("notifySyncCompleted", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(browser.tabs.query).mockResolvedValue([
-      { id: 1, active: true },
-      { id: 2, active: true },
-      { id: undefined, active: true },
-    ] as any);
-    vi.mocked(browser.tabs.sendMessage).mockResolvedValue(undefined);
+    vi.useFakeTimers();
   });
+  afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); });
 
-  it("上传成功后闪现角标并向活动标签页发提示", async () => {
+  it("上传成功后闪现角标，不再查询或通知网页", async () => {
     await notifySyncCompleted("uploaded");
 
     expect(browser.action.setBadgeText).toHaveBeenCalledWith({ text: "✓" });
-    expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(2); // 无 id 的标签页被跳过
-    const message = vi.mocked(browser.tabs.sendMessage).mock.calls[0][1] as {
-      type: string;
-      text: string;
-    };
-    expect(message.type).toBe("marksync:sync-completed");
-    expect(message.text).toBeTruthy();
+    expect(browser.tabs.query).not.toHaveBeenCalled();
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
   });
 
   it("下载成功后同样提示", async () => {
     await notifySyncCompleted("downloaded");
     expect(browser.action.setBadgeText).toHaveBeenCalledWith({ text: "✓" });
-    expect(browser.tabs.sendMessage).toHaveBeenCalled();
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
   });
 
   it("内容相同（skip_identical）不提示，避免噪音", async () => {
@@ -42,11 +35,10 @@ describe("notifySyncCompleted", () => {
     expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
   });
 
-  it("发送失败（如 chrome:// 页面）不影响其他标签页", async () => {
-    vi.mocked(browser.tabs.sendMessage).mockRejectedValueOnce(new Error("no receiver"));
-    vi.mocked(browser.tabs.sendMessage).mockResolvedValueOnce(undefined);
-
-    await expect(notifySyncCompleted("uploaded")).resolves.toBeUndefined();
-    expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(2);
+  it("仍记录手动同步日志，角标在原时限后清除", async () => {
+    await notifySyncCompleted('uploaded', { trigger: 'manual', message: 'completed' });
+    expect(addSyncLog).toHaveBeenCalledWith(expect.objectContaining({ action: 'uploaded', trigger: 'manual', message: 'completed' }));
+    vi.advanceTimersByTime(2000);
+    expect(browser.action.setBadgeText).toHaveBeenLastCalledWith({ text: '' });
   });
 });

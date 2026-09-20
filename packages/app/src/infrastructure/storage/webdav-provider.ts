@@ -8,6 +8,7 @@ import { getWebDAVClient, type IWebDAVClient } from '../http/webdav-client'
 
 export class WebDAVStorageProvider implements IStorageProvider {
   readonly type = 'webdav' as const
+  async assertAccess(): Promise<void> { await this.client.assertAccess?.() }
   private client: IWebDAVClient
 
   constructor(configOrClient: WebDAVConfig | IWebDAVClient) {

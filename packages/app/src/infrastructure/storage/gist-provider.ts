@@ -5,6 +5,7 @@ import { INDEX_FILE, isBackupName, readIndex, type GistIndex } from './gist-inde
 
 export class GistStorageProvider implements IStorageProvider {
   readonly type = 'gist' as const;
+  async assertAccess(): Promise<void> { await this.client.assertAccess(); }
   private client: GistClient;
   private observedRevision: string | undefined;
   constructor(config: GistConfig) { this.client = new GistClient(config); }
@@ -85,6 +86,28 @@ export class GistStorageProvider implements IStorageProvider {
       entries: names.map((n, i) => ({ name: n, order: i + 1, timestamp: Date.parse(gist.updated_at), legacy: true })) };
     await this.client.updateGist({ [INDEX_FILE]: { content: JSON.stringify(index) } });
     if (readIndex(await this.client.getGist())?.revision !== index.revision) throw new Error('Gist 接管结果未确认');
+  }
+  async rollbackBackup(path: string, previousPath: string | null, expectedContent: string): Promise<void> {
+    const name = path.split('/').pop()!;
+    const previous = previousPath?.split('/').pop() ?? null;
+    const gist = await this.client.getGist();
+    const index = readIndex(gist);
+    if (!gist.files[name]) return;
+    if (!index || !index.entries.some(entry => entry.name === name && !entry.legacy)) throw new Error('迁移候选文件不属于受管理版本');
+    const file = gist.files[name];
+    const content = file.truncated ? await this.client.fetchRaw(file.raw_url) : file.content;
+    if (content !== expectedContent) throw new Error('迁移候选文件内容已变化');
+    if (index.current === name && (previous === name ||
+        (previous ? !index.entries.some(entry => entry.name === previous) : index.entries.length > 1))) {
+      throw new Error('无法确认迁移前的当前版本');
+    }
+    const next: GistIndex = { ...index, revision: crypto.randomUUID(),
+      current: index.current === name ? previous : index.current,
+      entries: index.entries.filter(entry => entry.name !== name) };
+    await this.client.updateGist({ [name]: null, [INDEX_FILE]: { content: JSON.stringify(next) } });
+    const verified = await this.client.getGist();
+    if (readIndex(verified)?.revision !== next.revision || verified.files[name]) throw new Error('迁移取消结果未确认');
+    this.observedRevision = next.revision;
   }
   getClient(): GistClient { return this.client; }
   async clearBackups(): Promise<number> {

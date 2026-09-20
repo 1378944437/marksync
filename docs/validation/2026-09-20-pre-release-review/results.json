@@ -1,0 +1,41 @@
+{
+  "recordedAt": "2026-09-20T05:04:18.6697528Z",
+  "kind": "read-only pre-release code review; assertions reproduce defects, not successful product behavior",
+  "productionCodeChanged": false,
+  "inputsMatched": 264,
+  "artifactsMatched": 29,
+  "reusedEvidence": "docs/validation/2026-09-20-host-permissions/evidence.json",
+  "fullSuiteRerun": false,
+  "reproduction": {
+    "runner": "Vitest 4, node, existing project browser mock; in-memory snapshot and storage-provider substitutes",
+    "source": "%TEMP%/marksync-review-20260920/repro.test.ts",
+    "config": "%TEMP%/marksync-review-20260920/vitest.config.mjs",
+    "sha256": "2df4c30ccf127f792b692893de6a5528f3c871053a3d0f23401ce684fc1c9fe0",
+    "passed": 4,
+    "total": 4,
+    "assertions": [
+      {
+        "name": "REPRO: clear starts deleting despite its rollback snapshot being unrestorable",
+        "status": "passed"
+      },
+      {
+        "name": "REPRO: empty initial encryption migration cannot resume or accept its confirmation",
+        "status": "passed"
+      },
+      {
+        "name": "REPRO: smart sync asks to clear new bookmarks after an acknowledged empty publication",
+        "status": "passed"
+      },
+      {
+        "name": "REPRO: upload reports success for a backup that its own reader rejects",
+        "status": "passed"
+      }
+    ]
+  },
+  "limitations": [
+    "Native permission dialogs and Firefox runtime not revalidated",
+    "No real providers contacted",
+    "Parallel reviewers unavailable; findings independently traced and reproduced by main reviewer",
+    "Temporary repro files are local review aids, not committed regression tests"
+  ]
+}

@@ -29,6 +29,10 @@ export const DEFAULT_SAFETY_SETTINGS: SafetySettings = {
  * 待用户确认的安全熔断拦截快照信息
  */
 export interface PendingSafetyConfirmation {
+  emptyAction?: 'push' | 'pull' | 'restore';
+  scope?: import('../../bookmark/sync-scope').SyncScope;
+  affectedScope?: import('../../bookmark/sync-scope').SyncScope;
+  backupPath?: string;
   context?: string;
   target?: string;
   id: string;
@@ -143,14 +147,16 @@ export interface SafetyCheckResult {
  * 评估是否触发防误删熔断保护
  *
  * 判定标准：
- * 1. skipSafetyGuard 为 true 或 enabled 为 false 时直接放行
- * 2. 基准总数有效且 deletedCount > 10，同时删除比例达到设定的阈值（默认 20%）
- * 3. 触发熔断时自动记录 pending_safety_confirmation
+ * 1. enabled 为 false 时直接放行
+ * 2. skipSafetyGuard 仅在 caller 同时提供 context 与 confirmationId，
+ *    且与 pending 记录完全匹配时放行（fail-closed：缺任一条件都重新评估）
+ * 3. 基准总数有效且 deletedCount > 10，同时删除比例达到设定的阈值（默认 20%）
+ * 4. 触发熔断时自动记录 pending_safety_confirmation
  */
 export async function evaluateSafetyBreaker(params: SafetyCheckParams): Promise<SafetyCheckResult> {
   const pending = params.skipSafetyGuard ? await getPendingSafetyConfirmation() : null;
-  if (params.skipSafetyGuard && (!params.context ||
-      (pending?.context === params.context && pending?.id === params.confirmationId))) {
+  if (params.skipSafetyGuard && params.context !== undefined && params.confirmationId !== undefined &&
+      !pending?.emptyAction && pending?.context === params.context && pending?.id === params.confirmationId) {
     return { allowed: true };
   }
 

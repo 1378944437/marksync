@@ -21,6 +21,8 @@ export interface BookmarkNode {
 export interface CloudBackup {
   metadata: BookmarkMetadata;
   data: BookmarkNode[];
+  /** 仅由云端解码器校验后赋值；线上格式使用非数组 data，旧版必须停止读取。 */
+  emptySync?: import('./core/bookmark/sync-scope').SyncScope;
 }
 
 export interface SyncHistoryItem {

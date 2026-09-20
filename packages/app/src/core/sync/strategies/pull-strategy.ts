@@ -3,7 +3,6 @@
  * 智能下载：拉取云端数据并恢复到本地
  */
 import { createStorageProvider } from "../../../infrastructure/storage/provider-factory";
-import type { BookmarkNode } from "../../../types";
 import { getE2ESettings, getMissingFolderFallback, getSyncScope, holdRestoringUntil, setIsRestoring } from "../sync-settings";
 import { snapshotManager } from "../../backup";
 import {
@@ -19,6 +18,9 @@ import { acquireSyncLock, releaseSyncLock } from "../lock-manager";
 import { setSyncState } from "../state-manager";
 import type { SyncResult } from "../types";
 import { assertNoRecovery, beginRecovery, finishRecovery } from '../recovery';
+import { assertEmptyLocalUnchanged, requireEmptyReceive } from '../utils/empty-confirmation';
+import { clearPendingSafetyConfirmation } from '../utils/safety-guard';
+import { emptySyncTree } from '../utils/empty-tree';
 
 /**
  * 智能下载：拉取云端数据并恢复到本地
@@ -31,7 +33,7 @@ export async function smartPull(
   config: StorageConfig,
   lockHolder: string,
   mode: "overwrite" | "merge" = "overwrite",
-  options?: { skipLock?: boolean },
+  options?: { skipLock?: boolean; confirmationId?: string },
 ): Promise<SyncResult> {
   const startTime = Date.now();
   const skipLock = options?.skipLock ?? false;
@@ -60,24 +62,6 @@ export async function smartPull(
     // 同步范围（每台设备独立）：范围外系统文件夹不参与本次拉取
     const syncScope = await getSyncScope();
 
-    // 0. 创建本地快照（下载前备份）
-    console.log("[PullStrategy] Creating local snapshot before pull...");
-    let currentTree: BookmarkNode[] = [];
-    let currentCount = 0;
-    let snapshotId: number;
-    try {
-      currentTree = await bookmarkRepository.getTree();
-      currentCount = countBookmarks(currentTree);
-      snapshotId = await snapshotManager.createSnapshot(
-        currentTree,
-        currentCount,
-        `下载前 (${lockHolder === "manual" ? "手动" : "自动"} ${mode === "overwrite" ? "覆盖" : "合并"})`
-      );
-    } catch (error) {
-      console.warn("[PullStrategy] Failed to create snapshot:", error);
-      throw error;
-    }
-
     // 1. 下载云端最新备份数据
     console.log("[PullStrategy] Downloading from cloud...");
     const latest = await fileManager.getLatestBackupFile(client);
@@ -96,6 +80,12 @@ export async function smartPull(
       console.error("[PullStrategy] Pull aborted: failed to read backup file");
       return { success: false, action: "error", message: "无法读取云端备份" };
     }
+    const currentTree = await bookmarkRepository.getTree();
+    const acknowledged = await requireEmptyReceive({ backup: cloudData, localTree: currentTree, scope: syncScope,
+      target: getStorageIdentifier(config), path: latest.path, mtime: latest.lastModified,
+      confirmationId: lockHolder === 'manual' ? options?.confirmationId : undefined });
+    if (acknowledged) return { success: true, action: 'skipped', message: '清空已同步，无需重复恢复' };
+    if (cloudData.emptySync && mode === 'merge') throw new Error('清空备份不能自动合并，请选择确认清空或手动上传保留本地内容');
     // 应用同步范围：范围外系统文件夹不参与恢复
     cloudData.data = filterTreeByScope(cloudData.data, syncScope);
     const cloudCount = countBookmarks(cloudData.data);
@@ -112,7 +102,7 @@ export async function smartPull(
 
     // 三方合并相关内容已移除：覆盖拉取直接应用云端（按同步范围过滤）数据
     const scopedLocalCount = countBookmarks(filterTreeByScope(currentTree, syncScope));
-    if (mode === "overwrite" && scopedLocalCount > 20 && cloudCount < scopedLocalCount / 2) {
+    if (!cloudData.emptySync && mode === "overwrite" && scopedLocalCount > 20 && cloudCount < scopedLocalCount / 2) {
       console.error(
         `[PullStrategy] Overwrite pull aborted: cloud (${cloudCount}) far below local (${scopedLocalCount})`,
       );
@@ -126,6 +116,16 @@ export async function smartPull(
     // 2. 恢复书签
     console.log(`[PullStrategy] Restoring bookmarks (${mode} mode)...`);
     const missingFolderFallback = (await getMissingFolderFallback()) && syncScope.other;
+    // 网络与校验失败不消耗快照；同一份当前树用于安全检查和写入前备份。
+    const snapshotId = await snapshotManager.createSnapshot(
+      currentTree, countBookmarks(currentTree),
+      `恢复前 (${lockHolder === "manual" ? "手动" : "自动"} ${mode === "overwrite" ? "覆盖" : "合并"})`,
+    );
+    if (cloudData.emptySync) {
+      const current = await fileManager.getLatestBackupFile(client);
+      if (current?.path !== latest.path || current.lastModified !== latest.lastModified) throw new Error('云端版本已变化，请重新同步并确认');
+      await assertEmptyLocalUnchanged(currentTree, syncScope);
+    }
     await beginRecovery(snapshotId, 'pull');
     if (mode === "overwrite") {
       await bookmarkRepository.restoreFromBackup(cloudData, { missingFolderFallback });
@@ -136,7 +136,7 @@ export async function smartPull(
     // 3. 记录本地树签名（按同步范围过滤，供脏检测使用）
     let localHash: string | undefined;
     try {
-      const restoredTree = filterTreeByScope(await bookmarkRepository.getTree(), syncScope);
+      const restoredTree = (cloudData.emptySync ? emptySyncTree : filterTreeByScope)(await bookmarkRepository.getTree(), syncScope);
       localHash = await computeTreeHash(restoredTree);
     } catch (error) {
       console.warn("[PullStrategy] Failed to compute local baseline:", error);
@@ -153,6 +153,7 @@ export async function smartPull(
       localHash,
     });
     await finishRecovery();
+    if (cloudData.emptySync) await clearPendingSafetyConfirmation();
 
     const elapsed = Date.now() - startTime;
     console.log(`[PullStrategy] Pull completed in ${elapsed}ms`);

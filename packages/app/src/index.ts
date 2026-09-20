@@ -25,7 +25,7 @@ export { useTheme } from "./hooks/useTheme";
 // Services
 export { SnapshotManager, snapshotManager } from "./core/backup";
 export type { Snapshot } from "./core/backup";
-export { getWebDAVClient, WebDAVClient, createWebDAVClient } from "./infrastructure/http/webdav-client";
+export { getWebDAVClient, WebDAVClient } from "./infrastructure/http/webdav-client";
 export type { IWebDAVClient } from "./infrastructure/http/webdav-client";
 export { createStorageProvider, GistClient, GistStorageProvider, WebDAVStorageProvider } from "./infrastructure/storage";
 export type { IStorageProvider, StorageConfig, GistConfig, WebDAVConfig } from "./core/storage";

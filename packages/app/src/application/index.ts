@@ -3,7 +3,9 @@
  * 自动同步服务的公共 API
  */
 import browser from "webextension-polyfill";
-import { registerBookmarkListeners } from "./bookmark-monitor";
+import { registerBookmarkListeners, resumePendingUpload } from "./bookmark-monitor";
+import { removeLegacyHostPermissions, watchHostPermissions } from '../infrastructure/browser/host-permissions';
+import { cacheManager } from '../core/storage/cache-manager';
 import { maybeRunScheduledSync, registerAlarmListener, registerConfigWatcher } from "./scheduler";
 import { getWebDAVConfig } from "./state-manager";
 import { executeAutoPull } from "./sync-executor";
@@ -123,6 +125,11 @@ export async function checkCloudOnStartup(): Promise<void> {
  * 必须在 background script 的顶级作用域调用
  */
 export function initializeAutoSync(): void {
+  void removeLegacyHostPermissions().catch(error => console.error('[Permissions]', error));
+  watchHostPermissions(() => {
+    void cacheManager.clearAllCaches();
+    void resumePendingUpload().catch(error => console.error('[Permissions] Resume failed:', error));
+  });
   registerBookmarkListeners();
   registerAlarmListener();
   registerConfigWatcher();

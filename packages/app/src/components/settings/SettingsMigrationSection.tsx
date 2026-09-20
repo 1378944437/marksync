@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { SettingGroup } from "./SettingRow";
 import { Button } from "../Button";
 import { Input } from "../Input";
+import { useStorage } from '../../hooks/useStorage';
+import { requestHostPermissions } from '../../infrastructure/browser/host-permissions';
 import {
   applyMigratedSettings,
   exportSettings,
@@ -15,6 +17,9 @@ import {
 } from "../../application/settings-migrator";
 
 export function SettingsMigrationSection() {
+  const [storageType] = useStorage('storage_type', 'webdav');
+  const [webdavUrl] = useStorage('webdav_url', '');
+  const [gistEndpoint] = useStorage('gist_endpoint', 'https://api.github.com');
   const [includePasswords, setIncludePasswords] = useState(false);
   const [importCode, setImportCode] = useState("");
   const [isCopied, setIsCopied] = useState(false);
@@ -50,6 +55,10 @@ export function SettingsMigrationSection() {
 
     setIsImporting(true);
     try {
+      const s = payload.settings;
+      const endpoint = (s.storage_type ?? storageType) === 'gist'
+        ? (s.gist_endpoint ?? gistEndpoint) || 'https://api.github.com' : s.webdav_url ?? webdavUrl;
+      if (endpoint) await requestHostPermissions([endpoint]);
       await applyMigratedSettings(payload);
       toast.success("配置导入成功", {
         description: "配置已更新，页面将自动刷新应用新设置",

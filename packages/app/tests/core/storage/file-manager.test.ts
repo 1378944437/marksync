@@ -3,7 +3,7 @@
  * 测试文件名生成、解析、识别功能
  */
 import { FileManager } from "@src/core/storage/file-manager";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const fm = new FileManager();
 
@@ -124,6 +124,18 @@ describe("FileManager - 设备标识与自定义名称扩展", () => {
 });
 
 describe("FileManager - cleanOldBackups 双轨安全清理", () => {
+  it('propagates listing failures rather than reporting zero deleted files', async () => {
+    await expect(fm.cleanOldBackups({ listFiles: async () => { throw new Error('offline'); } })).rejects.toThrow('offline');
+  });
+
+  it('stops cleanup after the first deletion failure and keeps the newest files', async () => {
+    const deleteFile = vi.fn().mockRejectedValueOnce(new Error('403'));
+    const listFiles = async () => Array.from({ length: 8 }, (_, i) => ({
+      name: `bookmarks_${i}.json.gz`, path: `/p${i}`, lastModified: i + 1,
+    }));
+    await expect(fm.cleanOldBackups({ listFiles, deleteFile }, { minToKeep: 5, maxToKeep: 5 })).rejects.toThrow('403');
+    expect(deleteFile).toHaveBeenCalledExactlyOnceWith('/p2');
+  });
   it("文件数不超过保底份数时不执行删除", async () => {
     const mockClient = {
       listFiles: async () => [

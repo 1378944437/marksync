@@ -5,6 +5,7 @@
 import browser from "webextension-polyfill";
 import { validateSettings } from "./settings-validation";
 import { assertNoRecovery } from "../core/sync/recovery";
+import { requireHostPermission } from '../infrastructure/browser/host-permissions';
 
 export const MIGRATION_SCHEMA_VERSION = "1.0";
 export const MIGRATION_PREFIX = "marksync://config/v1/";
@@ -173,6 +174,10 @@ export async function applyMigratedSettings(payload: MigrationConfigPayload): Pr
     (s.e2e_enabled && !s.e2e_passphrase);
   if (incomplete) { toSave.auto_sync_enabled = false; toSave.scheduled_sync_enabled = false; }
 
+  // 部分导入按合并后的目标检查；缺权时整次导入不提交。
+  const merged = { ...await browser.storage.local.get(['storage_type', 'webdav_url', 'gist_endpoint']), ...toSave };
+  const endpoint = merged.storage_type === 'gist' ? String(merged.gist_endpoint || 'https://api.github.com') : String(merged.webdav_url || '');
+  if (endpoint) await requireHostPermission(endpoint);
   await browser.storage.local.set(toSave);
   console.log("[SettingsMigrator] Settings applied successfully:", Object.keys(toSave));
 }

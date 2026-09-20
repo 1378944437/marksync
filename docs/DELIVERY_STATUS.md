@@ -1,4 +1,24 @@
-# MarkSync 本轮交付状态
+# MarkSync 当前交付状态
+
+> 更新：2026-09-20｜版本：1.6.3｜四项发布前发现已修复，本地验证通过；公开发行与签名状态以 GitHub Release / Actions 实际结果为准。
+
+提交发布前复审的 **2 项 P1、2 项 P2 已修复**，新增 13 项回归；611 项单元测试、独立 strict、双平台构建，以及新构建的 11 项权限、1 项升级、7 项空树浏览器场景通过。实现、升级限制及证据见 [1.6.3 交付](RELEASE_1.6.3.md)。用户已明确授权修复后提交发布；此前 1.6.2 包与下列记录保留为历史材料。
+
+最新结果见 [主机权限收敛](HOST_PERMISSIONS_2026-09-20.md)：按需授权、撤权暂停、目标隔离、缓存复核和旧全网权限清理已实现，保留角标与日志。598 单元测试、独立类型检查、双浏览器构建、11 项权限浏览器检查、1 项旧本地包重载升级及 7 项空树回归通过。原生权限对话框、Firefox 实际交互与真实服务仍待验收。
+
+当前权限验收包：[Chrome / Edge ZIP](../artifacts/marksync-v1.6.2-host-permissions-20260920/marksync-chrome-v1.6.2-host-permissions-20260920.zip)、[Firefox 未签名临时测试 XPI](../artifacts/marksync-v1.6.2-host-permissions-20260920/marksync-firefox-v1.6.2-host-permissions-20260920-unsigned.xpi)、[安装与权限验收步骤](../artifacts/marksync-v1.6.2-host-permissions-20260920/INSTALL.md)。本次核对 264 个输入与 29 个构建文件摘要一致；包内 15/14 个文件逐一匹配构建并通过 manifest 引用检查，见[包校验](validation/2026-09-20-host-permissions/packages.json)。打包复用上述验证结果，没有重跑测试或构建；版本仍为 1.6.2，前批包保留。
+
+前批结果见 [2026-09-20 空树同步](EMPTY_SYNC_2026-09-20.md)：发送/接收确认、过期及状态变化保护、云端历史保留、接收前完整快照和中断恢复已实现；当时 577 单元测试、独立类型检查与双浏览器构建通过。凭证与 KDF 仍留在 [后续方案](FOLLOW_UP_PLAN_2026-09-19.md)。
+
+前序方案评估建议按权限、会话解锁、KDF 顺序分批实施，权限随后获授权实施。其余代码兼容边界、产品决定与验收条件见上述后续方案。本机 Edge 的 PBKDF2 310k/600k 单次派生中位耗时为 53.7/103.7 ms，见 [实测数据](validation/2026-09-20-security-plan/kdf-benchmark.json)；Firefox 与低性能设备未测，此结果不代表全平台性能通过。
+
+前批空树验收包（不含本轮权限修改）：[Chrome / Edge ZIP](../artifacts/marksync-v1.6.2-empty-sync-20260920/marksync-chrome-v1.6.2-empty-sync-20260920.zip)、[Firefox 未签名临时测试 XPI](../artifacts/marksync-v1.6.2-empty-sync-20260920/marksync-firefox-v1.6.2-empty-sync-20260920-unsigned.xpi)、[安装与两设备验收步骤](../artifacts/marksync-v1.6.2-empty-sync-20260920/INSTALL.md)。当时核对 261 个输入与 35 个构建文件摘要匹配空树证据；两个包的 18/17 个文件及 manifest 引用通过检查，见 [历史包校验](validation/2026-09-20-empty-sync/packages.json)。该打包阶段复用了当时的测试证据，本轮权限实施已重新验证。
+
+前批 [2026-09-19 接手修复](FIX_RESULTS_2026-09-19.md) 的 550 项单元测试与 6 项浏览器场景为历史证据，不冒充本批重新执行。
+
+真实 WebDAV/Gist、原生工具栏 popup 生命周期及 Firefox 实际交互未验证。下面是前序交付历史，包含当时的授权和验收安排，不构成本轮已验证或已授权的额外范围。
+
+## 历史记录（2026-09-15）
 
 > 更新：2026-09-15｜本地包版本：1.5.5｜状态：**1.5.4 已发布；后续手机留白与桌面弹窗尺寸修复通过本地验证，按此前授权提交并远端构建。1.5.5 未发布，真机验收继续延后。**
 

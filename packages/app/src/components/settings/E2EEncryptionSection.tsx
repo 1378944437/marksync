@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Eye, EyeOff, KeyRound, Loader2, Lock } from 'lucide-react'
 import { getActiveStorageConfig } from '../../application/state-manager'
-import { migrateEncryptionInBackground } from '../../application/background-ops'
+import { migrateEncryptionInBackground, cancelEncryptionMigrationInBackground } from '../../application/background-ops'
 import { useI18n } from '../../i18n'
 import { useStorage } from '../../hooks/useStorage'
 import { Button } from '../Button'
@@ -34,8 +34,22 @@ export function E2EEncryptionSection() {
   // 界面模式控制
   const [showDisableConfirm, setShowDisableConfirm] = useState(false)
   const [reuploading, setReuploading] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   const isMismatch = draftConfirm.length > 0 && draftPassword !== draftConfirm
+
+  const handleCancelMigration = async () => {
+    if (cancelling) return
+    setCancelling(true)
+    try {
+      const { config } = await getActiveStorageConfig()
+      if (!config) throw new Error(t('settings.sync.e2eNeedWebdav'))
+      const result = await cancelEncryptionMigrationInBackground(config)
+      if (!result.success) throw new Error(result.message)
+      toast.success(result.message)
+    } catch (error) { toast.error((error as Error).message) }
+    finally { setCancelling(false) }
+  }
 
   const handleReupload = async (enabled = e2eEnabled, passphrase = e2ePassphrase) => {
     if (reuploading) return
@@ -64,7 +78,15 @@ export function E2EEncryptionSection() {
 
   return (
     <div className="space-y-4">
-      {pending && <Button disabled={reuploading} onClick={() => void handleReupload()}>{t('repair.resumeEncryption')}</Button>}
+      {pending && (
+        <div className="flex items-center gap-2">
+          <Button size="sm" disabled={reuploading || cancelling} onClick={() => void handleReupload()}>{t('repair.resumeEncryption')}</Button>
+          <Button size="sm" variant="outline" disabled={cancelling || reuploading} onClick={() => void handleCancelMigration()}>
+            {cancelling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+            {t('repair.cancelEncryption')}
+          </Button>
+        </div>
+      )}
       {/* 核心卡片容器 */}
       <div className="p-4 surface-card space-y-4 border border-border/60 dark:border-white/[0.08]">
         {/* 顶部标题与主开关 */}

@@ -1,0 +1,2 @@
+c8c6b85a9f5e98286360063595b47158fedc6a8ec21095ba4f149ab9391506dd  marksync-chrome-v1.6.2-empty-sync-20260920.zip
+d8c7274f8f635d2d250f1d7e819593ca385e07ebb835fe6c5f2308c1d88a6dbd  marksync-firefox-v1.6.2-empty-sync-20260920-unsigned.xpi

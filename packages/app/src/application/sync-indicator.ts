@@ -1,28 +1,14 @@
 /**
  * 同步完成小提示
- * 两条通道（都短时、不打扰）：
- * 1. 扩展图标闪现绿色 ✓ 角标（面板关着也能看到）
- * 2. 向当前活动标签页的内容脚本发消息，在网页底部中央弹出轻提示
- *    （手机/折叠菜单里图标很难被注意到，页面内提示最直接）
+ * 扩展图标闪现绿色 ✓ 角标，详情保留在面板日志；不访问网页。
  */
 import browser from "webextension-polyfill";
 import type { SyncResult } from "../core/sync";
 import { addSyncLog, type SyncLogDiff } from "../core/analytics/sync-analytics";
 
 const BADGE_DURATION_MS = 2000;
-const SYNC_COMPLETED_MESSAGE = "marksync:sync-completed";
 
 let badgeTimer: ReturnType<typeof setTimeout> | null = null;
-
-/** 同步完成文案（后台拿不到 React 的 i18n 上下文，按浏览器 UI 语言二选一） */
-function syncCompletedText(): string {
-  try {
-    const lang = browser.i18n?.getUILanguage?.() ?? "en";
-    return lang.toLowerCase().startsWith("zh") ? "同步完成" : "Sync complete";
-  } catch {
-    return "Sync complete";
-  }
-}
 
 function flashBadge(): void {
   try {
@@ -94,28 +80,11 @@ export async function notifySyncCompleted(
     diff: details?.diff,
   });
 
-  // 非上传/下载类结果（跳过、错误）不闪现角标与页面气泡
+  // 非上传/下载类结果（跳过、错误）不闪现角标
   if (action !== "uploaded" && action !== "downloaded") return;
 
   flashBadge();
 
-  // 向所有窗口的活动标签页发消息；chrome:// 等无内容脚本的页面会失败，静默忽略
-  try {
-    const tabs = await browser.tabs.query({ active: true });
-    const text = syncCompletedText();
-    await Promise.allSettled(
-      tabs
-        .filter((tab) => tab.id !== undefined)
-        .map((tab) =>
-          browser.tabs.sendMessage(tab.id as number, {
-            type: SYNC_COMPLETED_MESSAGE,
-            text,
-          }),
-        ),
-    );
-  } catch (error) {
-    console.warn("[SyncIndicator] Failed to notify active page:", error);
-  }
 }
 
 /**

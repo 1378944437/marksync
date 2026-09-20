@@ -2,10 +2,8 @@
  * 同步策略子页面
  * 专注于同步行为：按触发机制、同步范围、高级规则清晰分三组
  */
-import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { Clock, Cloud, FolderTree, History, RefreshCw, Sliders, Timer } from 'lucide-react'
-import { updateScheduledSync } from '../../application'
 import { SYNC_SCOPE_KEYS, type SyncScope } from '../../core/bookmark'
 import { useI18n } from '../../i18n'
 import { useStorage } from '../../hooks/useStorage'
@@ -59,12 +57,9 @@ export function SyncSettingsPage({ onBack }: { onBack: () => void }) {
     setSyncScope({ ...syncScope, [key]: value })
   }
 
-  // 监听定时同步变化，立即同步 Alarm
-  useEffect(() => {
-    updateScheduledSync().catch((error) => {
-      console.error('[Settings] Failed to update scheduled sync:', error)
-    })
-  }, [scheduledSyncEnabled, scheduledSyncInterval])
+  // 定时同步配置变更由后台 registerConfigWatcher（storage.onChanged）对账：
+  // 页面不得直接触发 updateScheduledSync/maybeRunScheduledSync——
+  // popup 中途关闭会中断执行中的同步，留下半恢复的书签树与残留锁。
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">

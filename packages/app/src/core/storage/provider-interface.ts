@@ -3,7 +3,7 @@
  * 隔离底层传输协议（WebDAV / GitHub Gist / GitHub Repo），提供纯净的领域契约
  */
 
-export type StorageProviderType = 'webdav' | 'gist' | 'github';
+export type StorageProviderType = 'webdav' | 'gist';
 
 /**
  * 远程文件元信息
@@ -33,6 +33,9 @@ export interface IStorageProvider {
   /** 提供者驱动类型标识 */
   readonly type: StorageProviderType;
 
+  /** 有外部访问限制的驱动在返回缓存前也须检查；不执行网络请求。 */
+  assertAccess?(): Promise<void>;
+
   /** 测试连接与鉴权是否有效 */
   testConnection(): Promise<ConnectionTestResult>;
 
@@ -53,6 +56,8 @@ export interface IStorageProvider {
 
   /** 删除指定的远程文件 */
   deleteFile?(path: string): Promise<void>;
+  /** 显式取消未提交迁移：必要时恢复原当前版本，并删除内容已核对的候选文件。 */
+  rollbackBackup?(path: string, previousPath: string | null, expectedContent: string): Promise<void>;
   /** 经用户选择后接管旧备份；仅具有版本索引的存储提供。 */
   adoptBackup?(path: string): Promise<void>;
   /** 用户明确清空云端时使用；不会删除非备份文件。 */

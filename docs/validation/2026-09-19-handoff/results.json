@@ -1,0 +1,45 @@
+{
+  "date": "2026-09-19T12:54:03.057Z",
+  "browser": "153.0.4234.32",
+  "extensionVersion": "1.6.2",
+  "environment": "Real Edge extension; disposable profile; settings UI and background operations; loopback WebDAV/Gist fixtures",
+  "results": [
+    {
+      "name": "gist-settings-connection-success-and-specific-401-error",
+      "status": "passed"
+    },
+    {
+      "name": "gist-creation-survives-page-close-and-recovers-draft-without-saving-connection",
+      "status": "passed"
+    },
+    {
+      "name": "empty-webdav-address-is-rejected-in-settings",
+      "status": "passed"
+    },
+    {
+      "name": "cancel-migration-ui-deletes-only-candidate-and-unblocks-sync",
+      "status": "passed"
+    },
+    {
+      "name": "protocol-whitelist-rejects-entire-restore-before-bookmark-writes",
+      "status": "passed"
+    },
+    {
+      "name": "settings-reconcile-background-alarm-and-natural-due-sync-with-no-page-network",
+      "status": "passed"
+    }
+  ],
+  "failure": null,
+  "requestCounts": {
+    "PROPFIND": 18,
+    "PUT": 3,
+    "GET": 7,
+    "DELETE": 2
+  },
+  "limitations": [
+    "Not a real remote WebDAV/Gist service",
+    "Browser automation attached",
+    "Not a toolbar popup lifecycle test",
+    "No Firefox or mobile browser"
+  ]
+}

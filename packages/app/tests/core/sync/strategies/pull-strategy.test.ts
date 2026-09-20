@@ -104,6 +104,7 @@ const testConfig = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCreateSnapshot.mockResolvedValue(42);
   mockAcquire.mockResolvedValue(true);
   mockGetLatestBackupFile.mockResolvedValue({
     path: "BookmarkSyncer/backup.json.gz",
@@ -158,6 +159,7 @@ describe("smartPull - 基本流程", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("中止");
     expect(mockRestoreFromBackup).not.toHaveBeenCalled();
+    expect(mockCreateSnapshot).not.toHaveBeenCalled();
   });
 
   it("正常拉取（overwrite 模式）", async () => {
@@ -200,6 +202,21 @@ describe("smartPull - 基本流程", () => {
 });
 
 describe("smartPull - skipLock 修复", () => {
+  it.each(['download', 'validation', 'snapshot'])('does not write bookmarks after %s fails', async stage => {
+    if (stage === 'download') mockGetFileWithDedup.mockRejectedValueOnce(new Error('offline'));
+    if (stage === 'validation') mockGetFileWithDedup.mockResolvedValueOnce('{');
+    if (stage === 'snapshot') mockCreateSnapshot.mockRejectedValueOnce(new Error('quota'));
+    expect((await smartPull(testConfig, 'manual')).success).toBe(false);
+    expect(mockRestoreFromBackup).not.toHaveBeenCalled();
+    if (stage !== 'snapshot') expect(mockCreateSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('downloads before taking a snapshot, and snapshots before writing', async () => {
+    expect((await smartPull(testConfig, 'manual')).success).toBe(true);
+    expect(mockGetFileWithDedup.mock.invocationCallOrder[0]).toBeLessThan(mockGetTree.mock.invocationCallOrder[0]);
+    expect(mockGetTree.mock.invocationCallOrder[0]).toBeLessThan(mockCreateSnapshot.mock.invocationCallOrder[0]);
+    expect(mockCreateSnapshot.mock.invocationCallOrder[0]).toBeLessThan(mockRestoreFromBackup.mock.invocationCallOrder[0]);
+  });
   it("skipLock=true 时不获取/释放锁", async () => {
     const result = await smartPull(testConfig, "manual", "overwrite", {
       skipLock: true,

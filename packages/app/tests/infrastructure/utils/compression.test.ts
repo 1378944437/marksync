@@ -58,4 +58,20 @@ describe("compression", () => {
     const decompressed = await decompressText(compressed);
     expect(decompressed).toBe(original);
   });
+
+  it("压缩输入超过 32 MiB 上限时拒绝（停而不截）", async () => {
+    const oversized = "A".repeat(32 * 1024 * 1024 + 1);
+    await expect(decompressText(oversized)).rejects.toThrow("压缩备份超过 32 MiB");
+  });
+
+  it("解压后超过 maxBytes 上限时中止", async () => {
+    const compressed = await compressText("B".repeat(1024 * 1024));
+    await expect(decompressText(compressed, 1024)).rejects.toThrow("解压备份超过大小限制");
+  });
+
+  it("未超限时 maxBytes 参数不影响正常解压", async () => {
+    const original = "ok";
+    const decompressed = await decompressText(await compressText(original), 64 * 1024 * 1024);
+    expect(decompressed).toBe(original);
+  });
 });

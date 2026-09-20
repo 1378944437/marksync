@@ -10,27 +10,42 @@
  * 真正的执行逻辑在 background/op-handler.ts（按需加载，不进 popup bundle）。
  */
 import browser from "webextension-polyfill";
-import type { StorageConfig, WebDAVConfig } from "../core/storage/types";
+import type { StorageConfig, WebDAVConfig, GistConfig } from "../core/storage/types";
 import type { SmartSyncResult, SyncResult } from "../core/sync/types";
 
 // ─── 消息定义 ───
 
 export type BackgroundOpMessage =
   | { type: 'sync:encryption'; config: StorageConfig; next: import('../core/sync/sync-settings').E2ESettings }
+  | { type: 'encryption:cancel'; config: StorageConfig }
   | { type: 'storage:maintenance'; kind: 'local' | 'cloud' | 'factory'; config?: StorageConfig }
   | { type: 'storage:adopt'; config: StorageConfig; path: string }
   | { type: 'sync:restoreLocalSnapshot'; id: number }
   | { type: "storage:test"; config: StorageConfig }
   | { type: "webdav:test"; config: WebDAVConfig }
-  | { type: "sync:push"; config: StorageConfig; options?: { skipSafetyGuard?: boolean; confirmationId?: string } }
-  | { type: "sync:pull"; config: StorageConfig; mode: "overwrite" | "merge" }
+  | { type: "gist:test"; config: GistConfig }
+  | { type: "gist:create"; config: GistConfig; description?: string; isPublic?: boolean }
+  | { type: "sync:push"; config: StorageConfig; options?: { skipSafetyGuard?: boolean; confirmationId?: string; confirmEmpty?: boolean } }
+  | { type: "sync:pull"; config: StorageConfig; mode: "overwrite" | "merge"; confirmationId?: string }
   | { type: "sync:smart"; config: StorageConfig }
-  | { type: "sync:restoreCloudBackup"; config: StorageConfig; path: string; passphrase?: string };
+  | { type: "sync:restoreCloudBackup"; config: StorageConfig; path: string; passphrase?: string; confirmationId?: string };
 
 /** WebDAV 连接测试（登录）结果 */
 export type WebDAVTestResult =
   | { ok: true }
   | { ok: false; error: string };
+
+/** Gist 连接测试结果 */
+export type GistTestResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string };
+
+/** Gist 创建结果 */
+export type GistCreateResult =
+  | { ok: true; id: string; url: string }
+  | { ok: false; error: string };
+
+export interface CreatedGist { id: string; url: string; endpoint: string }
 
 // ─── popup 侧调用辅助 ───
 
@@ -64,6 +79,9 @@ export const adoptBackupInBackground = (config: StorageConfig, path: string): Pr
 export const migrateEncryptionInBackground = (config: StorageConfig, next: import('../core/sync/sync-settings').E2ESettings): Promise<SyncResult> => sendBackgroundOp(
   { type: 'sync:encryption', config, next }, { success: false, action: 'error', message: '无法连接扩展后台服务' });
 
+export const cancelEncryptionMigrationInBackground = (config: StorageConfig): Promise<SyncResult> => sendBackgroundOp(
+  { type: 'encryption:cancel', config }, { success: false, action: 'error', message: '无法连接扩展后台服务' });
+
 /** 在后台测试存储连接（登录/鉴权验证） */
 export async function storageTestInBackground(config: StorageConfig): Promise<WebDAVTestResult> {
   return sendBackgroundOp<WebDAVTestResult>(
@@ -77,6 +95,18 @@ export async function webdavTestInBackground(config: WebDAVConfig): Promise<WebD
   return storageTestInBackground(config);
 }
 
+/** Gist 连通性测试：在后台 SW 中执行，popup 中途关闭不影响请求 */
+export const gistTestInBackground = (config: GistConfig): Promise<GistTestResult> => sendBackgroundOp(
+  { type: 'gist:test', config }, { ok: false, error: '无法连接扩展后台服务' });
+
+/** 后台创建 Gist 并保留最近一次成功结果，页面重开后可恢复草稿。 */
+export const gistCreateInBackground = (
+  config: GistConfig,
+  description?: string,
+  isPublic = false,
+): Promise<GistCreateResult> => sendBackgroundOp(
+  { type: 'gist:create', config, description, isPublic }, { ok: false, error: '无法连接扩展后台服务' });
+
 /** 在后台执行智能同步 */
 export async function smartSyncInBackground(config: StorageConfig): Promise<SmartSyncResult> {
   return sendBackgroundOp<SmartSyncResult>(
@@ -88,7 +118,7 @@ export async function smartSyncInBackground(config: StorageConfig): Promise<Smar
 /** 在后台执行上传（Push） */
 export async function smartPushInBackground(
   config: StorageConfig,
-  options?: { skipSafetyGuard?: boolean; confirmationId?: string }
+  options?: { skipSafetyGuard?: boolean; confirmationId?: string; confirmEmpty?: boolean }
 ): Promise<SyncResult> {
   return sendBackgroundOp<SyncResult>(
     { type: "sync:push", config, options },
@@ -100,9 +130,10 @@ export async function smartPushInBackground(
 export async function smartPullInBackground(
   config: StorageConfig,
   mode: "overwrite" | "merge",
+  confirmationId?: string,
 ): Promise<SyncResult> {
   return sendBackgroundOp<SyncResult>(
-    { type: "sync:pull", config, mode },
+    { type: "sync:pull", config, mode, confirmationId },
     { success: false, action: "error", message: "无法连接扩展后台服务" },
   );
 }
@@ -112,9 +143,10 @@ export async function restoreCloudBackupInBackground(
   config: StorageConfig,
   path: string,
   passphrase?: string,
+  confirmationId?: string,
 ): Promise<SyncResult> {
   return sendBackgroundOp<SyncResult>(
-    { type: "sync:restoreCloudBackup", config, path, passphrase },
+    { type: "sync:restoreCloudBackup", config, path, passphrase, confirmationId },
     { success: false, action: "error", message: "无法连接扩展后台服务" },
   );
 }

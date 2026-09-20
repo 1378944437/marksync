@@ -187,4 +187,53 @@ describe('GistClient & GistStorageProvider 测试', () => {
     expect(getStorageIdentifier({ token: 't', gistId: 'gist_abc' })).toBe('gist:https://api.github.com/gist_abc')
     expect(getStorageIdentifier({ url: 'https://dav.example.com', username: 'u', password: 'p' })).toBe('webdav:https://dav.example.com|u')
   })
+
+  it.each([false, true])('rolls back a migration without deleting the previous or newer version: newer=%s', async newer => {
+    const provider = new GistStorageProvider(mockConfig);
+    const { gist, patch } = memoryGist(provider);
+    const previous = 'MarkSync/bookmarks_old.json.gz';
+    const candidate = 'MarkSync/bookmarks_candidate.json.gz.enc';
+    await provider.putFile(previous, 'old');
+    await provider.putFile(candidate, 'candidate');
+    if (newer) await provider.putFile('MarkSync/bookmarks_new.json.gz', 'new');
+    patch.mockClear();
+    await provider.rollbackBackup(candidate, previous, 'candidate');
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(gist.files['bookmarks_candidate.json.gz.enc']).toBeUndefined();
+    expect(gist.files['bookmarks_old.json.gz']).toBeDefined();
+    expect(JSON.parse(gist.files[INDEX_FILE].content).current).toBe(newer ? 'bookmarks_new.json.gz' : 'bookmarks_old.json.gz');
+    await provider.rollbackBackup(candidate, previous, 'candidate');
+    expect(patch).toHaveBeenCalledTimes(1);
+  });
+
+  it('can cancel the first indexed backup while preserving unrelated files', async () => {
+    const provider = new GistStorageProvider(mockConfig);
+    const { gist } = memoryGist(provider);
+    gist.files['README.md'] = { content: 'readme' };
+    await provider.putFile('MarkSync/bookmarks_first.json.gz.enc', 'first');
+    await provider.rollbackBackup('MarkSync/bookmarks_first.json.gz.enc', null, 'first');
+    expect(JSON.parse(gist.files[INDEX_FILE].content).current).toBeNull();
+    expect(gist.files['README.md']).toBeDefined();
+  });
+
+  it.each(['changed', 'missing-previous', 'unknown-previous'])('refuses unsafe rollback: %s', async kind => {
+    const provider = new GistStorageProvider(mockConfig);
+    const { gist, patch } = memoryGist(provider);
+    await provider.putFile('MarkSync/bookmarks_old.json.gz', 'old');
+    await provider.putFile('MarkSync/bookmarks_candidate.json.gz.enc', 'candidate');
+    patch.mockClear();
+    await expect(provider.rollbackBackup('MarkSync/bookmarks_candidate.json.gz.enc',
+      kind === 'unknown-previous' ? null : `MarkSync/bookmarks_${kind === 'missing-previous' ? 'absent' : 'old'}.json.gz`,
+      kind === 'changed' ? 'different' : 'candidate')).rejects.toThrow();
+    expect(patch).not.toHaveBeenCalled();
+    expect(gist.files['bookmarks_candidate.json.gz.enc']).toBeDefined();
+  });
+
+  it('keeps rollback failure visible when the remote read-back disagrees', async () => {
+    const provider = new GistStorageProvider(mockConfig);
+    const { patch } = memoryGist(provider);
+    await provider.putFile('MarkSync/bookmarks_first.json.gz.enc', 'first');
+    patch.mockResolvedValueOnce({} as any);
+    await expect(provider.rollbackBackup('MarkSync/bookmarks_first.json.gz.enc', null, 'first')).rejects.toThrow('未确认');
+  });
 })

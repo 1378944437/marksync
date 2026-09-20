@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-09-20T05:12:23.398Z",
+  "browser": "153.0.4234.32",
+  "status": "passed",
+  "oldOrigins": [
+    "<all_urls>",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "newOrigins": [],
+  "failure": null,
+  "limitations": [
+    "Unpacked previous package replaced by current build at the same path and version",
+    "Not a Chrome Web Store update, stock Firefox update or native permission-dialog test",
+    "Synthetic settings only; no real provider accessed"
+  ]
+}

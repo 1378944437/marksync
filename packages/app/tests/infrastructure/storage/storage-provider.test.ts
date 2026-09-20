@@ -60,6 +60,11 @@ describe('WebDAVStorageProvider 契约适配测试', () => {
 })
 
 describe('createStorageProvider 工厂模式测试', () => {
+  it('rejects unsupported drivers instead of falling back to WebDAV', () => {
+    expect(() => createStorageProvider({ type: 'github', webdavConfig: {
+      url: 'https://dav.example.com', username: 'u', password: 'p',
+    } } as any)).toThrow('不支持');
+  });
   it('直接传入 WebDAVConfig 能正确解析并创建 WebDAVStorageProvider', () => {
     const provider = createStorageProvider({
       url: 'https://dav.example.com',

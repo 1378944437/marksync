@@ -8,7 +8,7 @@ import { WebDAVStorageProvider } from './webdav-provider'
 import { GistStorageProvider } from './gist-provider'
 
 export interface StorageOptions {
-  type?: 'webdav' | 'gist' | 'github'
+  type?: 'webdav' | 'gist'
   webdavConfig?: WebDAVConfig
   gistConfig?: GistConfig
 }
@@ -19,6 +19,9 @@ export interface StorageOptions {
 export function createStorageProvider(
   config: StorageConfig | StorageOptions
 ): IStorageProvider {
+  if ('type' in config && config.type && config.type !== 'webdav' && config.type !== 'gist') {
+    throw new Error('[StorageProviderFactory] 不支持的存储驱动类型')
+  }
   // 1. 具备 token 的 Gist 配置
   if ('token' in config && config.token) {
     return new GistStorageProvider(config as GistConfig)

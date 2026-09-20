@@ -11,6 +11,24 @@ export interface DavListEntry {
   size: number;
 }
 
+/**
+ * 从 href 提取「已解码」路径。
+ * 先按 URL 解析出 pathname（绝对地址与相对路径均可，顺带剥离查询串），再解码；
+ * href 含非法 % 序列时保留原始形态——单个异常条目不允许击穿整个目录列举。
+ */
+function decodeHrefPath(href: string): string {
+  let decoded = href;
+  try {
+    decoded = new URL(href, "https://webdav.invalid").pathname;
+  } catch {
+    // URL 解析失败时退回原始 href，继续尝试解码
+  }
+  if (decoded.includes("%")) {
+    try { decoded = decodeURIComponent(decoded); } catch { /* 保留编码形态 */ }
+  }
+  return decoded;
+}
+
 export function parseDavList(xml: string, baseUrlPath: string): DavListEntry[] {
   const files: DavListEntry[] = [];
 
@@ -33,12 +51,7 @@ export function parseDavList(xml: string, baseUrlPath: string): DavListEntry[] {
       const isCollection = !!resourceTypeEl?.getElementsByTagNameNS("*", "collection")[0];
       if (isCollection) continue;
 
-      let decodedHref = decodeURIComponent(href);
-      try {
-        decodedHref = new URL(decodedHref).pathname;
-      } catch {
-        // Keep as is
-      }
+      let decodedHref = decodeHrefPath(href);
 
       // 移除 base path 前缀，避免重复
       if (decodedHref.startsWith(baseUrlPath + "/")) {
@@ -85,12 +98,7 @@ export function parseDavList(xml: string, baseUrlPath: string): DavListEntry[] {
       const isCollection = /<(?:\w+:)?collection\s*\/>/i.test(responseBlock);
       if (isCollection) continue;
 
-      let decodedHref = decodeURIComponent(hrefMatch[1].trim());
-      try {
-        decodedHref = new URL(decodedHref).pathname;
-      } catch {
-        // Keep as is
-      }
+      let decodedHref = decodeHrefPath(hrefMatch[1].trim());
 
       if (decodedHref.startsWith(baseUrlPath + "/")) {
         decodedHref = decodedHref.substring((baseUrlPath + "/").length);

@@ -12,7 +12,8 @@ import { cacheManager } from "../storage/cache-manager";
 import { STORAGE_CONSTANTS } from "../storage/types";
 import { clearLastBackupFileInfo } from "./sync-settings";
 import type { StorageConfig } from "../storage/types";
-import { beginRecovery, finishRecovery } from './recovery';
+import { assertNoRecovery, beginRecovery, finishRecovery } from './recovery';
+import { RESTORING_KEY, SYNC_LOCK_KEY } from './types';
 import { fileManager } from '../storage/file-manager';
 
 /**
@@ -99,7 +100,7 @@ export async function clearCloudBackups(config: StorageConfig): Promise<{ delete
     }
 
     // 清空本地缓存与上次备份信息
-    cacheManager.clearBackupListCache();
+    await cacheManager.clearBackupListCache();
     await clearLastBackupFileInfo();
     console.warn(`[DangerOperations] Deleted ${deletedCount} cloud backup files`);
   } catch (error) {
@@ -117,20 +118,18 @@ export async function clearCloudBackups(config: StorageConfig): Promise<{ delete
 export async function resetFactorySettings(): Promise<void> {
   console.warn("[DangerOperations] Initiating factory reset...");
   try {
-    // 1. 清空所有 IndexedDB 本地快照
+    await assertNoRecovery();
+    // 先停自动同步，再移除配置；持锁与恢复标志保留到维护操作退出。
     await browser.storage.local.set({ auto_sync_enabled: false, scheduled_sync_enabled: false });
-    await snapshotManager.deleteAllSnapshots();
-
-    // 2. 清空 storage.local
-    await browser.storage.local.clear();
-
-    // 3. 清空 storage.session（如果环境支持）
+    const retained = new Set([SYNC_LOCK_KEY, RESTORING_KEY, 'auto_sync_enabled', 'scheduled_sync_enabled']);
+    const local = await browser.storage.local.get(null);
+    await browser.storage.local.remove(Object.keys(local).filter(key => !retained.has(key)));
     if (browser.storage.session) {
-      await browser.storage.session.clear();
+      const session = await browser.storage.session.get(null);
+      await browser.storage.session.remove(Object.keys(session).filter(key => key !== RESTORING_KEY));
     }
-
-    // 4. 重置内存缓存
-    cacheManager.clearBackupListCache();
+    // 任一步配置清理失败，都保留快照供用户恢复；删除失败可再次执行重置。
+    await snapshotManager.deleteAllSnapshots();
 
     console.warn("[DangerOperations] Factory reset completed successfully");
   } catch (error) {

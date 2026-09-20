@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Mock fetch
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
-
 const testConfig = {
   url: "https://dav.example.com/remote.php/dav/files/user",
   username: "testuser",
@@ -30,8 +29,53 @@ function getLastFetchHeaders(): Record<string, string> {
   return call[1]?.headers || {};
 }
 
-beforeEach(() => {
-  mockFetch.mockReset();
+describe("WebDAVClient - 路径编码", () => {
+  beforeEach(() => { mockFetch.mockReset(); });
+
+  it("文件名中的特殊字符按路径段编码上送，不改变 URL 语义", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 201 });
+    const client = createClient();
+    await client.putFile("MarkSync/bookmarks with #q?.json.gz", "content");
+    expect(mockFetch.mock.calls[0][0]).toBe(
+      "https://dav.example.com/remote.php/dav/files/user/MarkSync/bookmarks%20with%20%23q%3F.json.gz"
+    );
+  });
+
+  it("常规文件名编码前后不变", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 201 });
+    const client = createClient();
+    await client.putFile("MarkSync/bookmarks_20260127_143052_edge_157_v1.json.gz", "c");
+    expect(mockFetch.mock.calls[0][0]).toBe(
+      "https://dav.example.com/remote.php/dav/files/user/MarkSync/bookmarks_20260127_143052_edge_157_v1.json.gz"
+    );
+  });
+
+  it("listFiles 返回的已解码路径（含空格）再次请求时重新编码", async () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:">
+  <d:response>
+    <d:href>/remote.php/dav/files/user/BookmarkSyncer/</d:href>
+    <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>/remote.php/dav/files/user/BookmarkSyncer/bookmarks%20name_v1.json.gz</d:href>
+    <d:propstat><d:prop>
+      <d:getlastmodified>Mon, 27 Jan 2026 14:30:52 GMT</d:getlastmodified>
+      <d:getcontentlength>4096</d:getcontentlength>
+    </d:prop></d:propstat>
+  </d:response>
+</d:multistatus>`;
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => xml });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, text: async () => "data" });
+    const client = createClient();
+    const files = await client.listFiles("BookmarkSyncer");
+    expect(files).toHaveLength(1);
+    expect(files[0].path).toBe("BookmarkSyncer/bookmarks name_v1.json.gz");
+    await client.getFile(files[0].path);
+    expect(mockFetch.mock.calls[1][0]).toBe(
+      "https://dav.example.com/remote.php/dav/files/user/BookmarkSyncer/bookmarks%20name_v1.json.gz"
+    );
+  });
 });
 
 describe("WebDAVClient - Headers 修复 (Issue #9)", () => {
@@ -56,11 +100,7 @@ describe("WebDAVClient - Headers 修复 (Issue #9)", () => {
   });
 
   it("listFiles 请求头不包含 Content-Type", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 207,
-      text: async () => '<d:multistatus xmlns:d="DAV:"></d:multistatus>',
-    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => '<d:multistatus xmlns:d="DAV:"></d:multistatus>' });
     const client = createClient();
     await client.listFiles("BookmarkSyncer");
 
@@ -138,11 +178,7 @@ describe("WebDAVClient - XML 命名空间解析", () => {
   }
 
   it("解析 Nextcloud 格式的 XML (d: 前缀)", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 207,
-      text: async () => makeMultistatusXml("d:"),
-    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => makeMultistatusXml("d:") });
     const client = createClient();
     const files = await client.listFiles("BookmarkSyncer");
 
@@ -154,11 +190,7 @@ describe("WebDAVClient - XML 命名空间解析", () => {
   });
 
   it("解析 Apache/AList 格式的 XML (D: 前缀)", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 207,
-      text: async () => makeMultistatusXml("D:"),
-    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => makeMultistatusXml("D:") });
     const client = createClient();
     const files = await client.listFiles("BookmarkSyncer");
 
@@ -168,11 +200,7 @@ describe("WebDAVClient - XML 命名空间解析", () => {
   });
 
   it("解析无前缀格式的 XML", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 207,
-      text: async () => makeMultistatusXml(""),
-    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => makeMultistatusXml("") });
     const client = createClient();
     const files = await client.listFiles("BookmarkSyncer");
 
@@ -192,22 +220,14 @@ describe("WebDAVClient - XML 命名空间解析", () => {
     </d:propstat>
   </d:response>
 </d:multistatus>`;
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 207,
-      text: async () => emptyXml,
-    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => emptyXml });
     const client = createClient();
     const files = await client.listFiles("BookmarkSyncer");
     expect(files).toEqual([]);
   });
 
   it("正确提取文件名、修改时间、大小", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 207,
-      text: async () => makeMultistatusXml("d:"),
-    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 207, text: async () => makeMultistatusXml("d:") });
     const client = createClient();
     const files = await client.listFiles("BookmarkSyncer");
 

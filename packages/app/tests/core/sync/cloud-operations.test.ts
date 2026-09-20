@@ -209,7 +209,7 @@ describe("getCloudInfo", () => {
 
 describe("restoreFromCloudBackup", () => {
   const sampleTree: BookmarkNode[] = [
-    { id: "0", title: "", children: [{ id: "1", title: "Bar", children: [] }] },
+    { id: "0", title: "", children: [{ id: "1", title: "Bar", children: [{ title: 'Saved', url: 'https://example.com' }] }] },
   ];
   const sampleBackup: CloudBackup = {
     metadata: { timestamp: 12345, clientVersion: "2.0.0" },
@@ -232,11 +232,7 @@ describe("restoreFromCloudBackup", () => {
   });
 
   it("成功恢复返回 success", async () => {
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(true);
     expect(result.action).toBe("downloaded");
     expect(mocks.releaseSyncLock).toHaveBeenCalledWith("manual");
@@ -244,22 +240,14 @@ describe("restoreFromCloudBackup", () => {
 
   it("获取锁失败时返回错误", async () => {
     mocks.acquireSyncLock.mockResolvedValueOnce(false);
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(false);
     expect(result.message).toContain("同步正在进行中");
   });
 
   it("离线时返回错误", async () => {
     Object.defineProperty(navigator, "onLine", { value: false, writable: true, configurable: true });
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(false);
     expect(result.message).toContain("网络断开");
     Object.defineProperty(navigator, "onLine", { value: true, writable: true, configurable: true });
@@ -267,44 +255,28 @@ describe("restoreFromCloudBackup", () => {
 
   it("JSON 解析失败时返回错误", async () => {
     mocks.getFileWithDedup.mockResolvedValueOnce("invalid json!!!");
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(false);
     expect(result.message).toContain("备份数据格式损坏");
   });
 
   it("下载失败返回空内容时返回错误", async () => {
     mocks.getFileWithDedup.mockResolvedValueOnce("");
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(false);
     expect(result.message).toContain("备份为空");
   });
 
   it("快照创建失败必须中止恢复", async () => {
     mocks.createSnapshot.mockRejectedValueOnce(new Error("snapshot fail"));
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(false);
     expect(mocks.restoreFromBackup).not.toHaveBeenCalled();
   });
 
   it("锁在 finally 中释放", async () => {
     mocks.restoreFromBackup.mockRejectedValueOnce(new Error("restore fail"));
-    const result = await restoreFromCloudBackup(
-      config,
-      "/BookmarkSyncer/backup.json.gz",
-      "manual"
-    );
+    const result = await restoreFromCloudBackup(config, "/BookmarkSyncer/backup.json.gz", "manual");
     expect(result.success).toBe(false);
     expect(mocks.releaseSyncLock).toHaveBeenCalledWith("manual");
   });

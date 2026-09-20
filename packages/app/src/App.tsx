@@ -10,6 +10,7 @@ import { Toaster } from './components/Toaster'
 import { FullTabConsole } from './components/fulltab/FullTabConsole'
 import { useDisplayMode } from './hooks/useDisplayMode'
 import { I18nProvider } from './i18n'
+import { HostPermissionNotice } from './components/HostPermissionNotice'
 
 function App() {
   const { isFullTab, isMobile } = useDisplayMode()
@@ -33,6 +34,7 @@ function App() {
 
                 {/* 弹窗主内容区 */}
                 <div className="flex-1 min-h-0 relative overflow-x-hidden overflow-y-auto px-4">
+                  <HostPermissionNotice />
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeTab}

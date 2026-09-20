@@ -14,3 +14,5 @@ export * from "./bookmark";
 
 // Sync 领域
 export * from "./sync";
+// 对外同步入口；书签树合并引擎仍从 ./bookmark 导入。
+export { smartSync } from "./sync";

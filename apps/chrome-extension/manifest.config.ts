@@ -25,15 +25,7 @@ const manifest = defineManifest({
     open_in_tab: true,
   },
   permissions: ["bookmarks", "storage", "alarms"],
-  host_permissions: ["<all_urls>"],
-  // 内容脚本：同步完成时在网页底部中央弹出轻提示
-  content_scripts: [
-    {
-      matches: ["http://*/*", "https://*/*"],
-      js: ["src/content.ts"],
-      run_at: "document_idle",
-    },
-  ],
+  optional_host_permissions: ["http://*/*", "https://*/*"],
   background: {
     service_worker: "src/background.ts",
     type: "module",

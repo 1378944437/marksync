@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill'
 import { validateSettings } from '../../application/settings-validation'
+import { requestHostPermissions } from '../../infrastructure/browser/host-permissions'
 /**
  * WebDAV 配置子页面
  * 提供模板与配置草稿，测试与保存分离，显式一次保存完整连接。
@@ -45,6 +46,7 @@ export function WebDAVPage({ onBack }: { onBack: () => void }) {
       const values = { webdav_url: localUrl.trim(), webdav_username: localUsername.trim(), webdav_password: localPassword }
       validateSettings(values)
       if (!values.webdav_url) throw new Error(t('settings.webdav.urlInvalid'))
+      await requestHostPermissions([values.webdav_url])
       await browser.storage.local.set(values)
       toast.success(t('settings.security.savedToast'))
     } catch (error) { toast.error((error as Error).message) }
@@ -85,12 +87,13 @@ export function WebDAVPage({ onBack }: { onBack: () => void }) {
       const trimmedUsername = localUsername.trim()
 
       // URL 基本格式校验
-      if (trimmedUrl && !/^https?:\/\/.+/i.test(trimmedUrl)) {
+      if (!/^https?:\/\/.+/i.test(trimmedUrl)) {
         toast.error(t('settings.webdav.urlInvalid'), { description: t('settings.webdav.urlInvalidDesc') })
         return
       }
 
       validateSettings({ webdav_url: trimmedUrl, webdav_username: trimmedUsername })
+      await requestHostPermissions([trimmedUrl])
       // 测试连接（在后台 Service Worker 中执行）
       const testResult = await webdavTestInBackground({
         url: trimmedUrl,

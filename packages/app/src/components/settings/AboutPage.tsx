@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { useI18n } from '../../i18n'
 import { Button } from '../Button'
 import { SubPageHeader } from './SettingsShared'
+import { requestHostPermissions, requireHostPermission } from '../../infrastructure/browser/host-permissions'
 
 // 顶部引入 semver
 import semver from 'semver'
@@ -26,10 +27,14 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
   const checkUpdate = async () => {
     setChecking(true)
     try {
-      const res = await fetch('https://api.github.com/repos/1378944437/marksync/releases/latest')
+      await requestHostPermissions(['https://api.github.com'])
+      await requireHostPermission('https://api.github.com')
+      const res = await fetch('https://api.github.com/repos/1378944437/marksync/releases/latest', { redirect: 'error' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       // GitHub release tag might be "v1.0.1", semver needs "1.0.1"
       const remoteVersion = data.tag_name?.replace(/^v/, '')
+      if (!semver.valid(remoteVersion)) throw new Error('Invalid release version')
       
       if (remoteVersion && semver.gt(remoteVersion, currentVersion)) {
         setUpdateAvailable(data.tag_name)

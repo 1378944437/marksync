@@ -22,6 +22,9 @@ import { setSyncState } from "./state-manager";
 import type { SyncBasis } from "./types";
 import type { SyncResult } from "./types";
 import { assertNoRecovery, beginRecovery, finishRecovery } from './recovery';
+import { assertEmptyLocalUnchanged, requireEmptyReceive } from './utils/empty-confirmation';
+import { clearPendingSafetyConfirmation } from './utils/safety-guard';
+import { emptySyncTree } from './utils/empty-tree';
 
 const DIR = STORAGE_CONSTANTS.BACKUP_DIR;
 
@@ -77,6 +80,8 @@ export async function getCloudBackupList(config: StorageConfig, forceRefresh = f
   }
 
   // 尝试从缓存读取（除非强制刷新）
+  const client = createStorageProvider(config);
+  await client.assertAccess?.();
   if (!forceRefresh) {
     const cached = await cacheManager.getCachedBackupList(getStorageIdentifier(config));
     if (cached) {
@@ -86,7 +91,6 @@ export async function getCloudBackupList(config: StorageConfig, forceRefresh = f
 
   // 缓存未命中或已过期，获取远端列表
   console.log("[CloudOperations] Fetching backup list from cloud...");
-  const client = createStorageProvider(config);
   const files = await client.listFiles(DIR);
 
   // 过滤出备份文件（.json.gz 与端到端加密的 .json.gz.enc）
@@ -116,6 +120,7 @@ export async function getCloudBackupList(config: StorageConfig, forceRefresh = f
   console.log(`[CloudOperations] Found ${backupList.length} cloud backups`);
 
   // 缓存结果（注意：认证失败等错误会在 listFiles 抛出，因此不会缓存“假空列表”）
+  await client.assertAccess?.();
   await cacheManager.cacheBackupList({
     target: getStorageIdentifier(config),
     backups: backupList,
@@ -133,6 +138,7 @@ export async function restoreFromCloudBackup(
   backupPath: string,
   lockHolder: string,
   passphrase?: string,
+  confirmationId?: string,
 ): Promise<SyncResult> {
   const startTime = Date.now();
   console.log(`[CloudOperations] Restoring from backup: ${backupPath}`);
@@ -159,23 +165,6 @@ export async function restoreFromCloudBackup(
     // 保留简化版本作为保险（如果还有 409，说明有其他问题）
     console.log(`[CloudOperations] Starting restore operation...`);
 
-    // 0. 创建本地快照（恢复前备份）
-    console.log("[CloudOperations] Creating local snapshot before restore...");
-    let currentTree: BookmarkNode[] = [];
-    let snapshotId: number;
-    try {
-      currentTree = await bookmarkRepository.getTree();
-      const currentCount = countBookmarks(currentTree);
-      snapshotId = await snapshotManager.createSnapshot(
-        currentTree,
-        currentCount,
-        `云端恢复前 (${lockHolder === "manual" ? "手动" : "自动"} 恢复)`
-      );
-    } catch (error) {
-      console.warn("[CloudOperations] Failed to create snapshot:", error);
-      throw error;
-    }
-
     // 直接下载备份文件（带去重保护；.enc 备份需本机密码解密，未开启时队列层抛出开启提示）
     console.log("[CloudOperations] Downloading backup...");
     const e2e = await getE2ESettings();
@@ -193,6 +182,10 @@ export async function restoreFromCloudBackup(
 
     // 应用同步范围：范围外系统文件夹不参与恢复
     const syncScope = await getSyncScope();
+    const currentTree: BookmarkNode[] = await bookmarkRepository.getTree();
+    await requireEmptyReceive({ backup: cloudData, localTree: currentTree, scope: syncScope,
+      target: getStorageIdentifier(config), path: backupPath, restore: true,
+      confirmationId: lockHolder === 'manual' ? confirmationId : undefined });
     cloudData.data = filterTreeByScope(cloudData.data, syncScope);
     const scopedCloudCount = countBookmarks(cloudData.data);
 
@@ -221,6 +214,9 @@ export async function restoreFromCloudBackup(
     // 2. 恢复书签
     console.log("[CloudOperations] Restoring bookmarks...");
     const missingFolderFallback = (await getMissingFolderFallback()) && syncScope.other;
+    const snapshotId = await snapshotManager.createSnapshot(currentTree, countBookmarks(currentTree),
+      `云端恢复前 (${lockHolder === 'manual' ? '手动' : '自动'} 恢复)`);
+    if (cloudData.emptySync) await assertEmptyLocalUnchanged(currentTree, syncScope);
     await beginRecovery(snapshotId, 'cloud-restore');
     await bookmarkRepository.restoreFromBackup(cloudData, { missingFolderFallback });
 
@@ -229,7 +225,7 @@ export async function restoreFromCloudBackup(
     // 避免下一次自动拉取立即用较新的备份覆盖用户刚恢复的状态
     let localHash: string | undefined;
     try {
-      localHash = await computeTreeHash(filterTreeByScope(await bookmarkRepository.getTree(), syncScope));
+      localHash = await computeTreeHash((cloudData.emptySync ? emptySyncTree : filterTreeByScope)(await bookmarkRepository.getTree(), syncScope));
     } catch (error) {
       console.warn("[CloudOperations] Failed to compute local baseline:", error);
       throw error;
@@ -253,6 +249,7 @@ export async function restoreFromCloudBackup(
       localHash,
     });
     await finishRecovery();
+    if (cloudData.emptySync) await clearPendingSafetyConfirmation();
 
     const elapsed = Date.now() - startTime;
     console.log(`[CloudOperations] Restore completed in ${elapsed}ms`);

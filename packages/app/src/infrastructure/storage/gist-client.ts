@@ -3,6 +3,7 @@
  * 纯 HTTP 协议操作，封装 GitHub REST API v3 (/gists) 的读写、连通性探测与一键建库
  */
 import type { GistConfig } from '../../core/storage/types'
+import { requireHostPermission } from '../browser/host-permissions'
 
 export interface GistFileDetail {
   filename: string
@@ -29,13 +30,15 @@ export class GistClient {
   private readonly gistId: string
   private readonly endpoint: string
 
-  constructor(config: GistConfig) {
+  constructor(private readonly config: GistConfig) {
     this.token = config.token.trim()
     this.gistId = (config.gistId || '').trim()
     // 规范化 API 端点，去除末尾斜杠，默认使用 https://api.github.com
     const rawEndpoint = config.endpoint?.trim() || 'https://api.github.com'
     this.endpoint = rawEndpoint.replace(/\/+$/, '')
   }
+
+  async assertAccess(): Promise<void> { await requireHostPermission(this.endpoint, this.config) }
 
   /**
    * 基础 GitHub API 请求头
@@ -56,9 +59,10 @@ export class GistClient {
     options: RequestInit = {},
     customSignal?: AbortSignal
   ): Promise<Response> {
+    await requireHostPermission(url, this.config)
     const timeout = AbortSignal.timeout(GistClient.TIMEOUT_MS)
     const signal = customSignal ? AbortSignal.any([customSignal, timeout]) : timeout
-    return fetch(url, { ...options, signal })
+    return fetch(url, { ...options, signal, redirect: 'error' })
   }
 
   /**
@@ -180,9 +184,28 @@ export class GistClient {
   }
 
   /**
+   * 校验 raw_url 的目标域：Token 只允许发往 Gist 静态域与用户配置端点的派生域，
+   * 防止被篡改的响应或恶意端点诱导 Token 外发。
+   */
+  private assertSafeRawUrl(rawUrl: string): void {
+    let target: URL
+    try { target = new URL(rawUrl) } catch { throw new Error('Raw 文件地址无效') }
+    const allowed = new Set(['gist.githubusercontent.com'])
+    try {
+      const endpointHost = new URL(this.endpoint).host
+      allowed.add(endpointHost)
+      if (endpointHost === 'api.github.com') allowed.add('raw.githubusercontent.com')
+    } catch { /* 端点异常时仅允许官方静态域 */ }
+    if (target.protocol !== 'https:' || !allowed.has(target.host)) {
+      throw new Error(`Raw 文件地址不在允许的域内，已阻止携带 Token 的请求: ${target.host}`)
+    }
+  }
+
+  /**
    * 获取截断大文件的原始 Raw 内容
    */
   async fetchRaw(rawUrl: string, signal?: AbortSignal): Promise<string> {
+    this.assertSafeRawUrl(rawUrl)
     const res = await this.fetchWithTimeout(rawUrl, {
       method: 'GET',
       headers: { Authorization: `Bearer ${this.token}` },

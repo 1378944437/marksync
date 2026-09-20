@@ -20,9 +20,11 @@ import { saveLastRemoteDevice } from "../sync-settings";
 import type { E2ESettings } from "../sync-settings";
 import type { SyncResult } from "../types";
 import { evaluateSafetyBreaker } from "./safety-guard";
+import { assertEmptyLocalUnchanged, emptyTreeSignature, requireEmptyConfirmation, requireEmptyReceive, scopeValues } from './empty-confirmation';
+import { validateEmptyTree } from './empty-tree';
 
 export type CloudStateCheck =
-  | { kind: "proceed" }
+  | { kind: "proceed"; beforeWrite?: () => Promise<void> }
   | { kind: "abort"; result: SyncResult }
   | { kind: "skip"; result: SyncResult };
 
@@ -50,15 +52,43 @@ export async function checkCloudStateBeforeUpload(
 
   try {
     const latest = await fileManager.getLatestBackupFile(client);
-    if (!latest) {
+    if (!latest && countBookmarks(scopedLocalTree) > 0) {
       console.log("[PushStrategy] No cloud backup found, first upload");
       return { kind: "proceed" };
     }
 
-    const cloudData = await fetchValidatedCloudBackup(client, latest.path, {
+    const cloudData = latest ? await fetchValidatedCloudBackup(client, latest.path, {
       passphrase: e2e.enabled ? e2e.passphrase : undefined,
-    });
-    if (!cloudData) {
+    }) : null;
+    if (countBookmarks(scopedLocalTree) === 0) {
+      validateEmptyTree(scopedLocalTree, syncScope);
+      const cloudHash = cloudData ? await emptyTreeSignature(cloudData.data) : null;
+      const sameEmpty = cloudData?.emptySync &&
+        JSON.stringify(scopeValues(cloudData.emptySync)) === JSON.stringify(scopeValues(syncScope)) &&
+        await compareWithCloud(scopedLocalTree, cloudData);
+      if (sameEmpty && latest) {
+        await requireEmptyReceive({ backup: cloudData, localTree: scopedLocalTree, scope: syncScope,
+          target: configUrl, path: latest.path, mtime: latest.lastModified });
+        if (!params.forceUpload) return { kind: 'skip', result: { success: true, action: 'skipped', message: '清空已同步，无需重复发布' } };
+      } else {
+        await requireEmptyConfirmation({ action: 'push', target: configUrl, scope: syncScope,
+          localTree: scopedLocalTree, cloud: cloudData, path: latest?.path, mtime: latest?.lastModified,
+          count: cloudData ? countBookmarks(filterTreeByScope(cloudData.data, syncScope)) : 0,
+          confirmationId: lockHolder === 'manual' ? params.confirmationId : undefined });
+      }
+      // 确认后到真正上传前仍可能经过压缩/加密/快照等异步工作，最后再核对一次。
+      return { kind: 'proceed', beforeWrite: async () => {
+        const current = await fileManager.getLatestBackupFile(client);
+        await assertEmptyLocalUnchanged(scopedLocalTree, syncScope);
+        const changed = current?.path !== latest?.path || current?.lastModified !== latest?.lastModified;
+        if (changed) throw new Error('确认后的本地内容、范围或云端版本已变化，请重新同步并确认');
+        if (current) {
+          const fresh = await fetchValidatedCloudBackup(client, current.path, { passphrase: e2e.enabled ? e2e.passphrase : undefined });
+          if (!fresh || await emptyTreeSignature(fresh.data) !== cloudHash) throw new Error('云端内容已变化，请重新确认');
+        }
+      } };
+    }
+    if (!cloudData || !latest) {
       return { kind: "proceed" };
     }
 

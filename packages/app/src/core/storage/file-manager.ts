@@ -273,21 +273,16 @@ export class FileManager {
       );
 
       let deletedCount = 0;
+      if (!client.deleteFile) throw new Error('此存储不支持清理备份');
       for (const file of filesToDelete) {
-        try {
-          if (client.deleteFile) {
-            await client.deleteFile(file.path);
-            deletedCount++;
-          }
-        } catch (error) {
-          console.error(`[FileManager] Failed to delete ${file.name}:`, error);
-        }
+        await client.deleteFile(file.path);
+        deletedCount++;
       }
 
       return deletedCount;
     } catch (error) {
       console.error("[FileManager] Failed to clean old backups:", error);
-      return 0;
+      throw error;
     }
   }
 }
