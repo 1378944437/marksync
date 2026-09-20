@@ -82,6 +82,11 @@
     @apply h-full w-full bg-background text-foreground antialiased;
   }
 
+  /* 桌面弹窗由容器绘制圆角，外层不填充四角；手机与独立页仍铺满背景。 */
+  :is(html, body, #root):has(.compact-layout:not(.mobile-layout)) {
+    background: transparent;
+  }
+
 
   /* 注意：不要在 html/body 上加 overflow-hidden 或百分比外的尺寸约束——
      弹窗窗口按文档内容测尺寸，裁剪会让高度链断成 0，弹窗塌缩成小方块；
