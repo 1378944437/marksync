@@ -33,14 +33,14 @@ function App() {
                 </div>
 
                 {/* 弹窗主内容区 */}
-                <div className="flex-1 min-h-0 relative overflow-x-hidden overflow-y-auto px-4">
+                <div className="flex-1 min-h-0 relative overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] [overflow-anchor:none] px-4">
                   <HostPermissionNotice />
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                       key={activeTab}
-                      initial={{ opacity: 0, x: isMobile ? 0 : activeTab === 'sync' ? -20 : 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: isMobile ? 0 : activeTab === 'sync' ? 20 : -20 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                       transition={{ duration: isMobile ? 0.12 : 0.2, ease: 'easeOut' }}
                       className="h-full"
                     >

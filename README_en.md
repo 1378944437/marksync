@@ -38,6 +38,10 @@ Your bookmarks represent private digital assets. **MarkSync** removes third-part
 
 ## ✨ Core Feature Matrix
 
+The popup opens without horizontal or card slide-in motion; count loading rows keep a fixed height.
+
+On a new device with no bookmarks, enable encryption using the existing cloud passphrase. After verification, only local settings are saved; download your bookmarks from the sync panel without publishing an empty backup.
+
 | Feature | Description |
 | :--- | :--- |
 | ☁️ **Multi-Protocol Cloud Storage** | Seamlessly switch between **WebDAV** and **GitHub Gist**; 1-click auto-creation of secret Gists with custom API proxy endpoint support. |

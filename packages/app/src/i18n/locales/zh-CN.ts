@@ -219,7 +219,7 @@ export const dictionary: Record<string, string> = {
   "settings.sync.scopeAllOff": "至少保留一个同步范围",
   "settings.sync.deviceSection": "设备标识",
   "settings.sync.e2eSection": "端到端加密",
-  "settings.sync.e2eDesc": "开启后，备份在本设备加密（AES-256-GCM）后才上传，WebDAV 服务器无法读取内容。所有设备需使用相同密码；未开启的设备同步时会提示开启",
+  "settings.sync.e2eDesc": "开启后，备份在本设备加密后上传。新设备连接已有加密备份时，请输入原密码；验证成功只保存本机设置，再到同步面板拉取，即使本地没有书签也无需发布清空。修改密码仍需迁移备份。",
   "settings.sync.e2ePassword": "加密密码（至少 8 位）",
   "settings.sync.e2ePasswordPlaceholder": "输入加密密码",
   "settings.sync.e2eConfirm": "确认密码",

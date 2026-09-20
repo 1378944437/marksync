@@ -28,8 +28,8 @@ import { SyncMainAction } from './sync/SyncMainAction'
 import { SyncStatusFeedback } from './sync/SyncStatusFeedback'
 import { SyncFooter } from './sync/SyncFooter'
 
-const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }
-const item = { hidden: { y: 16, opacity: 0 }, show: { y: 0, opacity: 1 } }
+const container = { hidden: { opacity: 0 }, show: { opacity: 1 } }
+const item = { hidden: { opacity: 0 }, show: { opacity: 1 } }
 
 export function SyncView() {
   const { t, locale } = useI18n()
@@ -113,7 +113,7 @@ export function SyncView() {
       {countsApi.error && <p role="alert" className="text-sm text-destructive break-words">{countsApi.error}</p>}
       <motion.div
         variants={container}
-        initial="hidden"
+        initial={false}
         animate="show"
         className="console-sync-view space-y-5 pt-3 h-full flex flex-col relative"
       >

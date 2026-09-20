@@ -219,7 +219,7 @@ export const dictionary: Record<string, string> = {
   "settings.sync.scopeAllOff": "Keep at least one folder in scope",
   "settings.sync.deviceSection": "Device identity",
   "settings.sync.e2eSection": "End-to-end encryption",
-  "settings.sync.e2eDesc": "Backups are encrypted on this device (AES-256-GCM) before upload — the WebDAV server can't read them. Use the same passphrase on every device; devices without it get prompted during sync",
+  "settings.sync.e2eDesc": "Backups are encrypted before upload. On a new device, enter the existing cloud passphrase. Verification saves only local settings; then download from the sync panel, even with no local bookmarks. Changing the passphrase still requires migration.",
   "settings.sync.e2ePassword": "Encryption passphrase (min 8 chars)",
   "settings.sync.e2ePasswordPlaceholder": "Enter encryption passphrase",
   "settings.sync.e2eConfirm": "Confirm passphrase",

@@ -73,7 +73,7 @@ export function StatsCard({
 
       {/* 数量数值与两端一致图标微徽章（去除文本占位，鼠标悬停展示 Tooltip） */}
       <div className="flex items-end justify-between relative z-10 mt-1">
-        <div className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <div className="h-9 text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
           {loading ? (
             <div className="h-8 w-16 bg-muted animate-pulse rounded" />
           ) : (

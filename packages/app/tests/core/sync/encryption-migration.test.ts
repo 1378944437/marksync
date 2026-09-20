@@ -5,6 +5,8 @@ import { getE2ESettings } from '../../../src/core/sync/sync-settings';
 import { decryptText, encryptText } from '../../../src/infrastructure/utils/crypto';
 import { compressText, decompressText } from '../../../src/infrastructure/utils/compression';
 import { smartPush } from '../../../src/core/sync/strategies/push-strategy';
+import { smartPull } from '../../../src/core/sync/strategies/pull-strategy';
+import { bookmarkRepository } from '../../../src/core/bookmark';
 import { fileManager } from '../../../src/core/storage/file-manager';
 import { getStorageIdentifier } from '../../../src/core/storage/types';
 const mocks = vi.hoisted(() => ({ client: { type: 'webdav', getFile: vi.fn(), putFile: vi.fn(), listFiles: vi.fn(), exists: vi.fn(), deleteFile: vi.fn() }, snapshot: vi.fn() }));
@@ -25,6 +27,47 @@ beforeEach(() => {
   mocks.client.listFiles.mockImplementation(async () => [...files.keys()].map((path, i) => ({ path, name: path.split('/').pop(), lastModified: i + 1 })));
 });
 afterEach(() => vi.restoreAllMocks());
+it.each([false, true])('joins encrypted cloud without publishing the local tree (empty=%s)', async empty => {
+  if (empty) {
+    const local = structuredClone(tree); local[0].children[0].children = [];
+    vi.mocked(browser.bookmarks.getTree).mockResolvedValue(local);
+  }
+  const path = 'MarkSync/bookmarks_existing.json.gz.enc';
+  const content = await encryptText(await compressText(JSON.stringify({ data: tree })), 'cloud-password');
+  files.set(path, content);
+  expect(await migrateEncryption(config, { enabled: true, passphrase: 'cloud-password' })).toMatchObject({ success: true, action: 'skipped' });
+  expect(await getE2ESettings()).toEqual({ enabled: true, passphrase: 'cloud-password' });
+  expect(mocks.client.putFile).not.toHaveBeenCalled();
+  expect(mocks.client.deleteFile).not.toHaveBeenCalled();
+  expect(mocks.snapshot).not.toHaveBeenCalled();
+  expect((await browser.storage.local.get(['syncState', 'encryption_migration', 'pending_safety_confirmation']))).toEqual({});
+  expect(files.get(path)).toBe(content);
+  if (empty) {
+    const restore = vi.spyOn(bookmarkRepository, 'restoreFromBackup').mockImplementation(async () => {
+      vi.mocked(browser.bookmarks.getTree).mockResolvedValue(tree);
+    });
+    expect(await smartPull(config, 'manual')).toMatchObject({ success: true, action: 'downloaded' });
+    expect(restore).toHaveBeenCalledWith(expect.objectContaining({ data: expect.any(Array) }), expect.any(Object));
+    expect(mocks.client.putFile).not.toHaveBeenCalled();
+    expect(mocks.client.deleteFile).not.toHaveBeenCalled();
+  }
+});
+it.each(['wrong-password', 'corrupt', 'changed-version'])('keeps settings unchanged when joining fails: %s', async kind => {
+  const path = 'MarkSync/bookmarks_existing.json.gz.enc';
+  files.set(path, await encryptText(await compressText(kind === 'corrupt' ? '{bad' : JSON.stringify({ data: tree })), 'cloud-password'));
+  if (kind === 'changed-version') {
+    const read = mocks.client.getFile.getMockImplementation()!;
+    mocks.client.getFile.mockImplementationOnce(async name => {
+      const content = await read(name);
+      files.set('MarkSync/bookmarks_new.json.gz.enc', content);
+      return content;
+    });
+  }
+  await expect(migrateEncryption(config, { enabled: true, passphrase: kind === 'wrong-password' ? 'wrong-password' : 'cloud-password' })).rejects.toThrow();
+  expect((await getE2ESettings()).enabled).toBe(false);
+  expect(mocks.client.putFile).not.toHaveBeenCalled();
+  expect(mocks.client.deleteFile).not.toHaveBeenCalled();
+});
 it.each([false, true])('keeps empty-sync confirmation usable before migration starts (legacy record=%s)', async legacy => {
   files.set('MarkSync/bookmarks_old.json.gz', await compressText(JSON.stringify({ data: tree })));
   const empty = structuredClone(tree); empty[0].children[0].children = [];

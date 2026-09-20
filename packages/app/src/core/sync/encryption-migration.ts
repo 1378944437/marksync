@@ -8,6 +8,7 @@ import { getE2ESettings, type E2ESettings } from './sync-settings';
 import { smartPush } from './strategies/push-strategy';
 import { assertNoRecovery } from './recovery';
 import { SYNC_STATE_KEY, type SyncResult, type SyncState } from './types';
+import { fetchValidatedCloudBackup } from './utils/cloud-data-helper';
 
 export const MIGRATION_KEY = 'encryption_migration';
 interface Migration { target: string; next: E2ESettings; path?: string; previousPath?: string | null; contentHash?: string; state?: SyncState; committed?: boolean }
@@ -52,6 +53,19 @@ export async function migrateEncryption(config: StorageConfig, next: E2ESettings
       // 兼容旧版在预检前留下的无候选路径记录；有路径的未知写入继续保留。
       if (pending && !migration.path) await browser.storage.local.remove(MIGRATION_KEY);
       const old = await getE2ESettings();
+      // 新设备加入已有加密库只验证密码，不发布本地树，也不伪造已同步基线。
+      if (!migration.path && !old.enabled && migration.next.enabled) {
+        const remote = await fileManager.getLatestBackupFile(client);
+        if (remote?.path.endsWith('.enc')) {
+          await fetchValidatedCloudBackup(client, remote.path, { passphrase: migration.next.passphrase });
+          const current = await fileManager.getLatestBackupFile(client);
+          if (current?.path !== remote.path || current.lastModified !== remote.lastModified) {
+            throw new Error('验证期间云端版本发生变化，请重新开启加密');
+          }
+          await browser.storage.local.set({ e2e_enabled: true, e2e_passphrase: migration.next.passphrase });
+          return { success: true, action: 'skipped', message: '已验证云端加密备份并保存本机密码，请返回同步面板拉取云端书签' };
+        }
+      }
       const result = await smartPush(config, 'manual', { skipLock: true, preserveHistory: true,
         writeEncryption: migration.next,
         readEncryption: old.passphrase ? old : migration.next,
