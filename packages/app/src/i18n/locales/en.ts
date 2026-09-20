@@ -267,6 +267,7 @@ export const dictionary: Record<string, string> = {
 
   // ─── About page ───
   "settings.about.title": "About",
+  "settings.about.forkedFrom": "Forked from",
   "settings.about.desc": "A privacy-first cross-browser bookmark sync tool using WebDAV — your data stays under your control.",
   "settings.about.support": "Supports Chrome, Edge, Firefox and other Chromium/Firefox-based browsers.",
   "settings.about.checkUpdate": "Check for updates",

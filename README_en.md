@@ -38,7 +38,9 @@ Your bookmarks represent private digital assets. **MarkSync** removes third-part
 
 ## ✨ Core Feature Matrix
 
-The popup opens without horizontal or card slide-in motion; count loading rows keep a fixed height.
+The popup opens without horizontal or card slide-in motion; count loading rows keep a fixed height. The cloud count shows “—” while loading, without a skeleton block.
+
+On the About page, click MarkSync to visit this project's GitHub repository. The “Forked from Yueby/bookmark-syncer” credit links to the original project.
 Scrollbars are hidden; mouse-wheel, touch and keyboard scrolling remain available.
 Settings help supports click, hover and keyboard focus. Retention fields show one pair of step buttons; backup file intervals use a dropdown.
 

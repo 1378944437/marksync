@@ -267,6 +267,7 @@ export const dictionary: Record<string, string> = {
 
   // ─── 关于页 ───
   "settings.about.title": "关于",
+  "settings.about.forkedFrom": "复刻自",
   "settings.about.desc": "一个隐私优先的跨浏览器书签同步工具，使用 WebDAV 协议，数据完全由你掌控。",
   "settings.about.support": "支持 Chrome、Edge、Firefox 等基于 Chromium 和 Firefox 的浏览器。",
   "settings.about.checkUpdate": "检查更新",

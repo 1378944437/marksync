@@ -60,8 +60,14 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
       <SubPageHeader title={t('settings.about.title')} onBack={onBack} />
       <div className="space-y-4 pb-4">
         <div className="p-4 surface-card text-center">
-          <h3 className="text-xl font-bold text-foreground">MarkSync</h3>
+          <h3 className="text-xl font-bold text-foreground">
+            <a href="https://github.com/1378944437/marksync" target="_blank" rel="noopener noreferrer" className="hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">MarkSync</a>
+          </h3>
           <p className="text-sm text-muted-foreground mt-1">v{currentVersion}</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            {t('settings.about.forkedFrom')}{' '}
+            <a href="https://github.com/Yueby/bookmark-syncer" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">Yueby/bookmark-syncer</a>
+          </p>
         </div>
         <div className="p-4 surface-card">
           <p className="text-sm text-muted-foreground">
