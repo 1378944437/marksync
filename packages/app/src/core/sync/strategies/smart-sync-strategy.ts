@@ -146,7 +146,7 @@ export async function smartSync(
 
     // 首次同步或环境变更，且云端有数据 → 需要用户选择
     if (
-      lastSyncTime === 0 || !syncState?.localHash
+      lastSyncTime === 0 || !syncState?.localHash?.startsWith("tree-v2:")
     ) {
       console.log("[SmartSyncStrategy] First sync detected, need user choice");
       return {
@@ -156,6 +156,14 @@ export async function smartSync(
         needsConflictResolution: true,
         cloudInfo,
       };
+    }
+
+    // 恢复可能合并历史重复目录，或保留无法映射的系统根。
+    // 已接收同一云端版本且本地未编辑时，不把这些恢复差异反向发布。
+    if (syncState.type === "download" && syncState.basis &&
+      !isCloudNewerThanBasis(latest, syncState, storageId) &&
+      !isLocalDirty(syncState, await computeTreeHash(scopedLocalTree))) {
+      return { success: true, action: "skipped", message: "云端版本已接收，本地无新修改", cloudInfo };
     }
 
     // 5. 智能判断（传递锁给子策略，避免释放后重新获取的竞态窗口）

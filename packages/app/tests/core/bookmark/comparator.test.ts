@@ -12,6 +12,8 @@ vi.mock("@src/core/bookmark/hash-calculator", () => ({
 }));
 
 vi.mock("@src/core/bookmark/normalizer", () => ({
+  annotateSystemFolders: vi.fn((nodes: BookmarkNode[]) => nodes),
+  CHROMIUM_ROOT_ID_TO_FOLDER_TYPE: { "1": "bookmarks-bar", "2": "other", "3": "mobile" },
   isSystemRootFolder: vi.fn((node: BookmarkNode) => {
     // 模拟系统根文件夹判断
     return node.id === "0" && !node.title;
@@ -141,7 +143,7 @@ describe("computeTreeHash", () => {
     expect(await computeTreeHash(before)).not.toBe(await computeTreeHash(after));
   });
 
-  it("顺序重排不改变哈希（重排不是修改）", async () => {
+  it("顺序重排改变哈希", async () => {
     const a: BookmarkNode[] = [
       { title: "F", children: [
         { title: "A", url: "https://a.com", hash: "h1" },
@@ -154,10 +156,10 @@ describe("computeTreeHash", () => {
         { title: "A", url: "https://a.com", hash: "h1" },
       ] },
     ];
-    expect(await computeTreeHash(a)).toBe(await computeTreeHash(b));
+    expect(await computeTreeHash(a)).not.toBe(await computeTreeHash(b));
   });
 
-  it("书签在文件夹间移动不改变哈希（排布不是修改）", async () => {
+  it("书签在文件夹间移动改变哈希", async () => {
     const before: BookmarkNode[] = [
       { title: "F1", children: [{ title: "A", url: "https://a.com", hash: "h1" }] },
       { title: "F2", children: [] },
@@ -166,24 +168,24 @@ describe("computeTreeHash", () => {
       { title: "F1", children: [] },
       { title: "F2", children: [{ title: "A", url: "https://a.com", hash: "h1" }] },
     ];
-    expect(await computeTreeHash(before)).toBe(await computeTreeHash(after));
+    expect(await computeTreeHash(before)).not.toBe(await computeTreeHash(after));
   });
 
-  it("空文件夹增删/改名不改变哈希", async () => {
+  it("空文件夹改名改变哈希", async () => {
     const before: BookmarkNode[] = [{ title: "F", children: [] }];
     const after: BookmarkNode[] = [{ title: "G", children: [] }];
-    expect(await computeTreeHash(before)).toBe(await computeTreeHash(after));
+    expect(await computeTreeHash(before)).not.toBe(await computeTreeHash(after));
   });
 });
 
-describe("compareWithCloud（多重集口径）", () => {
+describe("compareWithCloud（结构口径）", () => {
   const node = (title: string, url: string, hash: string): BookmarkNode => ({
     title,
     url,
     hash,
   });
 
-  it("相同书签、不同顺序/不同文件夹排布 → 视为一致", async () => {
+  it("相同书签、不同顺序/不同文件夹排布 → 不一致", async () => {
     const local: BookmarkNode[] = [
       {
         id: "1",
@@ -200,7 +202,7 @@ describe("compareWithCloud（多重集口径）", () => {
         children: [node("B", "https://b.com", "h2"), node("A", "https://a.com", "h1")],
       },
     ];
-    expect(await compareWithCloud(local, cloud)).toBe(true);
+    expect(await compareWithCloud(local, cloud)).toBe(false);
   });
 
   it("云端多一条书签 → 不一致", async () => {

@@ -16,7 +16,9 @@ export interface ThemeContextType {
 export const ThemeContext = createContext<ThemeContextType | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeSetting, setThemeSetting] = useStorage<Theme>('theme', 'dark')
+  // 默认跟随系统：桌面弹窗外沿那 1 px 边框由宿主绘制、颜色跟随浏览器主题，
+  // 固定深色界面在浅色宿主上会让这条边框格外显眼；跟随系统可让界面与边框同色系。
+  const [themeSetting, setThemeSetting] = useStorage<Theme>('theme', 'system')
   const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark')
 
   // 获取系统主题偏好

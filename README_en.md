@@ -39,7 +39,7 @@ Your bookmarks represent private digital assets. **MarkSync** removes third-part
 ## ✨ Core Feature Matrix
 
 The popup opens without horizontal or card slide-in motion; count loading rows keep a fixed height. The cloud count shows “—” while loading, without a skeleton block.
-Desktop popup content fills the browser window without an extra rounded outer border; mobile views remain edge-to-edge.
+Desktop popup content fills the browser window with a subtle blue-gray inner outline to soften the contrast with the host frame, without changing popup dimensions; mobile views remain edge-to-edge. The browser still controls its own outer frame.
 
 The About & updates page lists separate “Project on GitHub” and “Forked from” links using repository names instead of raw URLs. Updates require manual download and installation.
 Scrollbars are hidden; mouse-wheel, touch and keyboard scrolling remain available.
@@ -93,6 +93,8 @@ Return to the main page and click **Sync Now**. Enable **Auto Sync** in settings
 
 - Only the bookmarks bar syncs by default. Comparison, upload and cloud restore use the same scope; excluded bookmarks are never moved or deleted. Full local snapshot restore is independent of cloud scope.
 - First use, account/target changes and scope changes require a direction choice when contents differ. Matching counts do not prove matching contents.
+- Bookmark moves, ordering within folders and folder structure changes also count as edits. After upgrading, legacy baselines cannot identify position changes: differing structures require a direction choice, while matching structures establish a new baseline automatically. When both clients have unsynced edits, local contents are not overwritten automatically.
+- Restore still merges sibling folders with identical names and removes duplicate bookmarks within a folder; missing system folders remain subject to the fallback setting. Once a cloud version has been received, unchanged local contents skip repeated sync to avoid uploading structural differences introduced by restore.
 - When no bookmarks remain in scope, select "Publish clear request" in the sync panel. Each receiving device must confirm the first application of that clear version. Unsynced local edits are also deleted: check the displayed target, folders and count. To keep local content, dismiss the notice and upload manually. Expired confirmations or changed contents, scope or cloud versions require a fresh confirmation; disabling the ordinary safety breaker does not bypass this check.
 - Publishing a clear retains existing cloud history; receiving saves a full local snapshot first. Only system folders present in the backup and included in both scopes are affected. Later nonempty uploads still apply normal retention. Upgrade all devices to a build supporting empty sync first; older clients may reject the backup format and must not bypass that error. Empty backups without explicit clear intent are rejected.
 - Changing, enabling or disabling encryption verifies and publishes a new backup before committing local settings. Historical encrypted files still require their original password. After interruption, resume or cancel an uncommitted migration. Cancellation verifies and deletes the candidate; Gist also restores the previous current version. Failed deletion retains the migration record. Already committed settings only need final cleanup; their backup is kept. Older Gist migrations without a previous-version record must be resumed.

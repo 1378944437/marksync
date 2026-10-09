@@ -46,7 +46,7 @@ const {
     mockGetLatestBackupFile: vi.fn(async () => null),
     mockParseBackupFileName: vi.fn(() => null),
     mockGetFileWithDedup: vi.fn(async () => null),
-    mockComputeTreeHash: vi.fn(async () => "tree-hash-stub"),
+    mockComputeTreeHash: vi.fn(async () => "tree-v2:tree-hash-stub"),
     mockSmartPush: vi.fn(async () => ({
       success: true,
       action: "uploaded" as const,
@@ -166,7 +166,7 @@ describe("smartSync - 分支决策", () => {
     mockGetSyncState.mockResolvedValueOnce({
       url: getStorageIdentifier(testConfig),
       time: 1,
-      localHash: "tree-hash-stub",
+      localHash: "tree-v2:tree-hash-stub",
     });
 
     await smartSync(testConfig, "auto-sync");
@@ -196,7 +196,7 @@ describe("smartSync - 分支决策", () => {
     mockGetSyncState.mockResolvedValueOnce({
       url: getStorageIdentifier(testConfig),
       time: 1,
-      localHash: "outdated-hash",
+      localHash: "tree-v2:outdated-hash",
     });
     mockComputeTreeHash.mockResolvedValueOnce("current-hash");
 
@@ -250,7 +250,7 @@ describe("smartSync - 分支决策", () => {
       url: getStorageIdentifier(testConfig),
       time: Date.now(),
       basis: { mtime: cloudMtime, filePath: "BookmarkSyncer/backup.json.gz" },
-      localHash: "baseline",
+      localHash: "tree-v2:baseline",
     });
 
     await smartSync(testConfig, "auto-sync");
